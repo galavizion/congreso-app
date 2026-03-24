@@ -10,46 +10,46 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
- async function handleLogin() {
-  setLoading(true)
-  setError('')
+  async function handleLogin() {
+    setLoading(true)
+    setError('')
 
-  const res = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password }),
-  })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
 
-  const data = await res.json()
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+      return
+    }
 
-  if (!res.ok) {
-    setError(data.error)
-    setLoading(false)
-    return
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
+
+    if (!profile) {
+      setError('No se encontró el perfil')
+      setLoading(false)
+      return
+    }
+
+    const routes: Record<string, string> = {
+      god: '/dashboard',
+      congress: '/congreso/dashboard',
+      stand: '/stand/dashboard',
+      attendee: '/asistente/inicio',
+    }
+
+    window.location.replace(routes[profile.role] ?? '/login')
   }
-
-  switch (data.role) {
-    case 'god':
-      window.location.href = '/dashboard'
-      break
-    case 'congress':
-      window.location.href = '/congreso/dashboard'
-      break
-    case 'stand':
-      window.location.href = '/stand/dashboard'
-      break
-    case 'attendee':
-      window.location.href = '/asistente/inicio'
-      break
-    default:
-      window.location.href = '/login'
-  }
-}
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
-
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">WinWin</h1>
           <p className="text-gray-500 text-sm mt-1">Inicia sesión para continuar</p>
@@ -83,7 +83,6 @@ export default function LoginPage() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </div>
-
       </div>
     </div>
   )

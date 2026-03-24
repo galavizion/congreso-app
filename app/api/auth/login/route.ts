@@ -1,16 +1,32 @@
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   const { email, password } = await request.json()
 
-  // Cliente para auth (anon)
-  const anonClient = createClient(
+  const cookieStore = await cookies()
+
+  // Cliente SSR para que guarde las cookies de sesión
+  const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll()
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) =>
+            cookieStore.set(name, value, options)
+          )
+        },
+      },
+    }
   )
 
-  const { data, error } = await anonClient.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   })
@@ -19,7 +35,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 401 })
   }
 
-  // Cliente con service role para leer profiles sin RLS
+  // Service role para leer profiles sin RLS
   const adminClient = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -31,7 +47,14 @@ export async function POST(request: Request) {
     .eq('id', data.user.id)
     .single()
 
-  console.log('profile desde admin:', profile)
+  console.log('profile desde admin:', profile?.role)
 
-  return NextResponse.json({ role: profile?.role })
+  const response = NextResponse.json({ role: profile?.role })
+
+  // Copiar cookies de sesión a la respuesta
+  cookieStore.getAll().forEach(cookie => {
+    response.cookies.set(cookie.name, cookie.value)
+  })
+
+  return response
 }
