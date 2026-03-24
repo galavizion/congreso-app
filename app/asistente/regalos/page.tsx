@@ -1,0 +1,142 @@
+import { createClient } from '@/lib/supabase/server'
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
+
+export default async function RegalosPage() {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || profile.role !== 'attendee') redirect('/login')
+
+  // Puntos totales
+  const { data: points } = await supabase
+    .from('points')
+    .select('*')
+    .eq('attendee_id', user.id)
+
+  const totalPoints = points?.reduce((acc, p) => acc + p.total_points, 0) ?? 0
+
+  // Regalos disponibles
+  const { data: gifts } = await supabase
+    .from('gifts')
+    .select('*')
+    .gt('stock', 0)
+    .order('points_cost', { ascending: true })
+
+  // Mis canjeos
+  const { data: redemptions } = await supabase
+    .from('redemptions')
+    .select('*, gifts(*)')
+    .eq('attendee_id', user.id)
+    .order('redeemed_at', { ascending: false })
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+
+      {/* Header */}
+      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
+        <Link href="/asistente/inicio" className="text-gray-400 text-xl">‹</Link>
+        <h1 className="text-lg font-semibold text-gray-900">Regalos</h1>
+      </div>
+
+      <div className="px-4 py-6 flex flex-col gap-4 max-w-2xl mx-auto">
+
+        {/* Puntos disponibles */}
+        <div className="bg-gray-900 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <p className="text-gray-400 text-sm">Tus puntos</p>
+            <p className="text-white text-3xl font-bold mt-0.5">{totalPoints}</p>
+          </div>
+          <div className="text-4xl">🎯</div>
+        </div>
+
+        {/* Regalos disponibles */}
+        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide">
+          Disponibles
+        </h2>
+
+        {gifts?.length === 0 && (
+          <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
+            No hay regalos disponibles por ahora.
+          </div>
+        )}
+
+        {gifts?.map(gift => {
+          const canRedeem = totalPoints >= gift.points_cost
+          return (
+            <div
+              key={gift.id}
+              className="bg-white rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4"
+            >
+              <div className="flex-1">
+                <p className="font-semibold text-gray-900">{gift.name}</p>
+                {gift.description && (
+                  <p className="text-sm text-gray-400 mt-0.5">{gift.description}</p>
+                )}
+                <p className="text-sm font-medium text-amber-600 mt-1">
+                  {gift.points_cost} puntos
+                </p>
+                <p className="text-xs text-gray-300 mt-0.5">
+                  {gift.stock} disponibles
+                </p>
+              </div>
+              <button
+                disabled={!canRedeem}
+                className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+                  canRedeem
+                    ? 'bg-gray-900 text-white active:bg-gray-700'
+                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                }`}
+              >
+                {canRedeem ? 'Canjear' : 'Sin puntos'}
+              </button>
+            </div>
+          )
+        })}
+
+        {/* Mis canjeos */}
+        {redemptions && redemptions.length > 0 && (
+          <>
+            <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mt-2">
+              Mis canjeos
+            </h2>
+            {redemptions.map(redemption => (
+              <div
+                key={redemption.id}
+                className="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between"
+              >
+                <div>
+                  <p className="font-medium text-gray-900">
+                    {(redemption.gifts as any)?.name}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {new Date(redemption.redeemed_at).toLocaleString('es-MX')}
+                  </p>
+                </div>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${
+                  redemption.status === 'delivered'
+                    ? 'bg-green-50 text-green-600'
+                    : redemption.status === 'cancelled'
+                    ? 'bg-red-50 text-red-600'
+                    : 'bg-amber-50 text-amber-600'
+                }`}>
+                  {redemption.status === 'delivered' ? 'Entregado' :
+                   redemption.status === 'cancelled' ? 'Cancelado' : 'Pendiente'}
+                </span>
+              </div>
+            ))}
+          </>
+        )}
+
+      </div>
+    </div>
+  )
+}
