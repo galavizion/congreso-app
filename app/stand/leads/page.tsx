@@ -1,28 +1,66 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function LeadsPage() {
-  const supabase = await createClient()
+export default function LeadsPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [leads, setLeads] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*, stands(*)')
-    .eq('id', user.id)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'stand') redirect('/login')
+      if (!profile || profile.role !== 'stand') { router.push('/login'); return }
 
-  const stand = (profile as any).stands
+      const { data: stand } = await supabase
+        .from('stands')
+        .select('*')
+        .eq('id', profile.stand_id)
+        .single()
 
-  const { data: leads } = await supabase
-    .from('leads')
-    .select('*, profiles(*)')
-    .eq('stand_id', stand.id)
-    .order('scanned_at', { ascending: false })
+      const { data: leadsData } = await supabase
+        .from('leads')
+        .select('*')
+        .eq('stand_id', stand?.id)
+        .order('scanned_at', { ascending: false })
+
+      const leadList = leadsData ?? []
+
+      if (leadList.length > 0) {
+        const attendeeIds = leadList.map((l: any) => l.attendee_id)
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('*')
+          .in('id', attendeeIds)
+
+        const profilesById: Record<string, any> = {}
+        for (const p of profilesData ?? []) {
+          profilesById[p.id] = p
+        }
+
+        setLeads(leadList.map((l: any) => ({ ...l, attendeeProfile: profilesById[l.attendee_id] ?? null })))
+      } else {
+        setLeads([])
+      }
+
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -39,28 +77,28 @@ export default async function LeadsPage() {
         <div className="bg-gray-900 rounded-2xl p-5 flex items-center justify-between">
           <div>
             <p className="text-gray-400 text-sm">Total de leads</p>
-            <p className="text-white text-3xl font-bold mt-0.5">{leads?.length ?? 0}</p>
+            <p className="text-white text-3xl font-bold mt-0.5">{leads.length}</p>
           </div>
           <div className="text-4xl">👥</div>
         </div>
 
-        {leads?.length === 0 && (
+        {leads.length === 0 && (
           <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
             Aún no hay leads. Comparte tu QR con los asistentes.
           </div>
         )}
 
-        {leads?.map(lead => (
+        {leads.map(lead => (
           <div
             key={lead.id}
             className="bg-white rounded-2xl p-4 shadow-sm flex items-center justify-between"
           >
             <div>
               <p className="font-medium text-gray-900">
-                {(lead.profiles as any)?.name ?? 'Sin nombre'}
+                {lead.attendeeProfile?.name ?? 'Sin nombre'}
               </p>
               <p className="text-sm text-gray-400">
-                {(lead.profiles as any)?.email}
+                {lead.attendeeProfile?.email}
               </p>
               <p className="text-xs text-gray-300 mt-0.5">
                 {new Date(lead.scanned_at).toLocaleString('es-MX')}

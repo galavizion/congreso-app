@@ -1,34 +1,52 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function AsistenteDashboardPage() {
-  const supabase = await createClient()
+export default function AsistenteDashboardPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [profile, setProfile] = useState<any>(null)
+  const [totalPoints, setTotalPoints] = useState(0)
+  const [leadsCount, setLeadsCount] = useState(0)
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'attendee') redirect('/login')
+      if (!profileData || profileData.role !== 'attendee') { router.push('/login'); return }
 
-  // Obtener puntos del asistente
-  const { data: points } = await supabase
-    .from('points')
-    .select('*')
-    .eq('attendee_id', user.id)
+      setProfile(profileData)
 
-  const totalPoints = points?.reduce((acc, p) => acc + p.total_points, 0) ?? 0
+      const { data: points } = await supabase
+        .from('points')
+        .select('*')
+        .eq('attendee_id', session.user.id)
 
-  // Obtener cantidad de stands escaneados
-  const { data: leads } = await supabase
-    .from('leads')
-    .select('id')
-    .eq('attendee_id', user.id)
+      setTotalPoints(points?.reduce((acc, p) => acc + p.total_points, 0) ?? 0)
+
+      const { data: leads } = await supabase
+        .from('leads')
+        .select('id')
+        .eq('attendee_id', session.user.id)
+
+      setLeadsCount(leads?.length ?? 0)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -46,7 +64,7 @@ export default async function AsistenteDashboardPage() {
           </div>
           <div className="text-right">
             <p className="text-gray-400 text-xs">Stands visitados</p>
-            <p className="text-white text-3xl font-bold mt-0.5">{leads?.length ?? 0}</p>
+            <p className="text-white text-3xl font-bold mt-0.5">{leadsCount}</p>
           </div>
         </div>
       </div>

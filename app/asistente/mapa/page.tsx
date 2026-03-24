@@ -1,28 +1,43 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function MapaPage() {
-  const supabase = await createClient()
+export default function MapaPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [congress, setCongress] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'attendee') redirect('/login')
+      if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
 
-  // Obtener el congreso y su mapa
-  const { data: congress } = await supabase
-    .from('congresses')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single()
+      const { data: congressData } = await supabase
+        .from('congresses')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      setCongress(congressData)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">

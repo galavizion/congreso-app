@@ -1,26 +1,60 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function AsistenteStandsPage() {
-  const supabase = await createClient()
+export default function AsistenteStandsPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [stands, setStands] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'attendee') redirect('/login')
+      if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
 
-  // Obtener stands con sus últimas noticias
-  const { data: stands } = await supabase
-    .from('stands')
-    .select('*, stand_posts(*)')
-    .order('created_at', { ascending: true })
+      const { data: standsData } = await supabase
+        .from('stands')
+        .select('*')
+        .order('created_at', { ascending: true })
+
+      const standList = standsData ?? []
+
+      if (standList.length > 0) {
+        const standIds = standList.map((s: any) => s.id)
+        const { data: postsData } = await supabase
+          .from('stand_posts')
+          .select('*')
+          .in('stand_id', standIds)
+
+        const postsByStand: Record<string, any[]> = {}
+        for (const p of postsData ?? []) {
+          if (!postsByStand[p.stand_id]) postsByStand[p.stand_id] = []
+          postsByStand[p.stand_id].push(p)
+        }
+
+        setStands(standList.map((s: any) => ({ ...s, stand_posts: postsByStand[s.id] ?? [] })))
+      } else {
+        setStands([])
+      }
+
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -33,15 +67,15 @@ export default async function AsistenteStandsPage() {
 
       <div className="px-4 py-6 flex flex-col gap-4 max-w-2xl mx-auto">
 
-        {stands?.length === 0 && (
+        {stands.length === 0 && (
           <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
             No hay stands registrados aún.
           </div>
         )}
 
-        {stands?.map(stand => {
-          const posts = (stand.stand_posts as any[]) ?? []
-          const lastPost = posts.sort((a, b) =>
+        {stands.map(stand => {
+          const posts: any[] = stand.stand_posts ?? []
+          const lastPost = [...posts].sort((a, b) =>
             new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
           )[0]
 

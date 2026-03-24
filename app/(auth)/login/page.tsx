@@ -44,7 +44,10 @@ export default function LoginPage() {
       attendee: '/asistente/inicio',
     }
 
-    window.location.replace(routes[profile.role] ?? '/login')
+    // Esperar a que Supabase guarde la sesión
+    await supabase.auth.getSession()
+    
+    window.location.href = routes[profile.role] ?? '/login'
   }
 
   return (

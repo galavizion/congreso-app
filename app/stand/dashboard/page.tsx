@@ -1,22 +1,42 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function StandDashboardPage() {
-  const supabase = await createClient()
+export default function StandDashboardPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [stand, setStand] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*, stands(*)')
-    .eq('id', user.id)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'stand') redirect('/login')
+      if (!profile || profile.role !== 'stand') { router.push('/login'); return }
 
-  const stand = (profile as any).stands
+      const { data: standData } = await supabase
+        .from('stands')
+        .select('*')
+        .eq('id', profile.stand_id)
+        .single()
+
+      setStand(standData)
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">

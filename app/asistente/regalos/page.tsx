@@ -1,42 +1,70 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function RegalosPage() {
-  const supabase = await createClient()
+export default function RegalosPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [totalPoints, setTotalPoints] = useState(0)
+  const [gifts, setGifts] = useState<any[]>([])
+  const [redemptions, setRedemptions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user.id)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'attendee') redirect('/login')
+      if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
 
-  // Puntos totales
-  const { data: points } = await supabase
-    .from('points')
-    .select('*')
-    .eq('attendee_id', user.id)
+      const { data: points } = await supabase
+        .from('points')
+        .select('*')
+        .eq('attendee_id', session.user.id)
 
-  const totalPoints = points?.reduce((acc, p) => acc + p.total_points, 0) ?? 0
+      setTotalPoints(points?.reduce((acc, p) => acc + p.total_points, 0) ?? 0)
 
-  // Regalos disponibles
-  const { data: gifts } = await supabase
-    .from('gifts')
-    .select('*')
-    .gt('stock', 0)
-    .order('points_cost', { ascending: true })
+      const { data: giftsData } = await supabase
+        .from('gifts')
+        .select('*')
+        .gt('stock', 0)
+        .order('points_cost', { ascending: true })
 
-  // Mis canjeos
-  const { data: redemptions } = await supabase
-    .from('redemptions')
-    .select('*, gifts(*)')
-    .eq('attendee_id', user.id)
-    .order('redeemed_at', { ascending: false })
+      setGifts(giftsData ?? [])
+
+      const { data: redemptionsData } = await supabase
+        .from('redemptions')
+        .select('*')
+        .eq('attendee_id', session.user.id)
+        .order('redeemed_at', { ascending: false })
+
+      const redemptionList = redemptionsData ?? []
+
+      if (redemptionList.length > 0 && giftsData && giftsData.length > 0) {
+        const giftsById: Record<string, any> = {}
+        for (const g of giftsData) {
+          giftsById[g.id] = g
+        }
+        setRedemptions(redemptionList.map((r: any) => ({ ...r, giftData: giftsById[r.gift_id] ?? null })))
+      } else {
+        setRedemptions(redemptionList)
+      }
+
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -63,13 +91,13 @@ export default async function RegalosPage() {
           Disponibles
         </h2>
 
-        {gifts?.length === 0 && (
+        {gifts.length === 0 && (
           <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
             No hay regalos disponibles por ahora.
           </div>
         )}
 
-        {gifts?.map(gift => {
+        {gifts.map(gift => {
           const canRedeem = totalPoints >= gift.points_cost
           return (
             <div
@@ -103,7 +131,7 @@ export default async function RegalosPage() {
         })}
 
         {/* Mis canjeos */}
-        {redemptions && redemptions.length > 0 && (
+        {redemptions.length > 0 && (
           <>
             <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wide mt-2">
               Mis canjeos
@@ -115,7 +143,7 @@ export default async function RegalosPage() {
               >
                 <div>
                   <p className="font-medium text-gray-900">
-                    {(redemption.gifts as any)?.name}
+                    {redemption.giftData?.name}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">
                     {new Date(redemption.redeemed_at).toLocaleString('es-MX')}

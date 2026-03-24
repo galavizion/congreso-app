@@ -1,28 +1,48 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function CongresoHorariosPage() {
-  const supabase = await createClient()
+export default function CongresoHorariosPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [schedules, setSchedules] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*, congresses(*)')
-    .eq('id', user.id)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'congress') redirect('/login')
+      if (!profile || profile.role !== 'congress') { router.push('/login'); return }
 
-  const congress = (profile as any).congresses
+      const { data: congressData } = await supabase
+        .from('congresses')
+        .select('*')
+        .eq('id', profile.congress_id)
+        .single()
 
-  const { data: schedules } = await supabase
-    .from('schedules')
-    .select('*')
-    .eq('congress_id', congress.id)
-    .order('starts_at', { ascending: true })
+      const { data: schedulesData } = await supabase
+        .from('schedules')
+        .select('*')
+        .eq('congress_id', congressData?.id)
+        .order('starts_at', { ascending: true })
+
+      setSchedules(schedulesData ?? [])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -43,13 +63,13 @@ export default async function CongresoHorariosPage() {
 
       <div className="px-4 py-6 flex flex-col gap-3 max-w-2xl mx-auto">
 
-        {schedules?.length === 0 && (
+        {schedules.length === 0 && (
           <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
             No hay conferencias programadas aún.
           </div>
         )}
 
-        {schedules?.map(schedule => (
+        {schedules.map(schedule => (
           <div key={schedule.id} className="bg-white rounded-2xl p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
               <div className="flex-1">

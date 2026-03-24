@@ -1,28 +1,51 @@
-import { createClient } from '@/lib/supabase/server'
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function CongresoStandsPage() {
-  const supabase = await createClient()
+export default function CongresoStandsPage() {
+  const router = useRouter()
+  const supabase = createClient()
+  const [stands, setStands] = useState<any[]>([])
+  const [congress, setCongress] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('*, congresses(*)')
-    .eq('id', user.id)
-    .single()
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
 
-  if (!profile || profile.role !== 'congress') redirect('/login')
+      if (!profile || profile.role !== 'congress') { router.push('/login'); return }
 
-  const congress = (profile as any).congresses
+      const { data: congressData } = await supabase
+        .from('congresses')
+        .select('*')
+        .eq('id', profile.congress_id)
+        .single()
 
-  const { data: stands } = await supabase
-    .from('stands')
-    .select('*')
-    .eq('congress_id', congress.id)
-    .order('created_at', { ascending: false })
+      setCongress(congressData)
+
+      const { data: standsData } = await supabase
+        .from('stands')
+        .select('*')
+        .eq('congress_id', profile.congress_id)
+        .order('created_at', { ascending: false })
+
+      setStands(standsData ?? [])
+      setLoading(false)
+    }
+    load()
+  }, [])
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -45,13 +68,13 @@ export default async function CongresoStandsPage() {
 
         <p className="text-sm text-gray-500">{congress?.name}</p>
 
-        {stands?.length === 0 && (
+        {stands.length === 0 && (
           <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
             No hay stands registrados aún.
           </div>
         )}
 
-        {stands?.map(stand => (
+        {stands.map(stand => (
           <div
             key={stand.id}
             className="bg-white rounded-2xl p-5 shadow-sm flex items-center justify-between"

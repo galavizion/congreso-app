@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
+
 export async function POST(request: Request) {
   const { email, password } = await request.json()
 
@@ -41,12 +42,15 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const { data: profile } = await adminClient
-    .from('profiles')
-    .select('role')
-    .eq('id', data.user.id)
-    .single()
+  const { data: profile, error: profileError } = await adminClient
+  .from('profiles')
+  .select('role')
+  .eq('id', data.user.id)
+  .single()
 
+console.log('user id buscado:', data.user.id)
+console.log('profile:', profile)
+console.log('profile error:', profileError)
   console.log('profile desde admin:', profile?.role)
 
   const response = NextResponse.json({ role: profile?.role })

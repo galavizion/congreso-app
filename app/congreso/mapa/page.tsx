@@ -7,26 +7,34 @@ import { createClient } from '@/lib/supabase/client'
 export default function CongresoMapaPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [mapUrl, setMapUrl] = useState<string | null>(null)
   const [congressId, setCongressId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.push('/login'); return }
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('*, congresses(*)')
-        .eq('id', user.id)
+        .select('*')
+        .eq('id', session.user.id)
         .single()
 
-      const congress = (profile as any)?.congresses
-      setCongressId(congress?.id)
-      setMapUrl(congress?.map_url)
+      if (!profile || profile.role !== 'congress') { router.push('/login'); return }
+
+      const { data: congress } = await supabase
+        .from('congresses')
+        .select('*')
+        .eq('id', profile.congress_id)
+        .single()
+
+      setCongressId(congress?.id ?? null)
+      setMapUrl(congress?.map_url ?? null)
+      setLoading(false)
     }
     load()
   }, [])
@@ -69,6 +77,8 @@ export default function CongresoMapaPage() {
     setMapUrl(urlData.publicUrl)
     setUploading(false)
   }
+
+  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
     <div className="min-h-screen bg-gray-50">
