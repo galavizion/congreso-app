@@ -26,28 +26,32 @@ export default function LoginPage() {
     }
 
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', data.user.id)
-      .single()
+  .from('profiles')
+  .select('role')
+  .eq('id', data.user.id)
+  .single()
 
-    if (!profile) {
-      setError('No se encontró el perfil')
-      setLoading(false)
-      return
-    }
+console.log('👤 Profile encontrado:', profile) // ← AGREGAR ESTO
+console.log('🎯 Rol:', profile?.role)        
 
-    const routes: Record<string, string> = {
-      god: '/dashboard',
-      congress: '/congreso/dashboard',
-      stand: '/stand/dashboard',
-      attendee: '/asistente/inicio',
-    }
+if (!profile) {
+  setError('No se encontró el perfil')
+  setLoading(false)
+  return
+}
 
-    // Esperar a que Supabase guarde la sesión
-    await supabase.auth.getSession()
-    
-    window.location.href = routes[profile.role] ?? '/login'
+const routes: Record<string, string> = {
+  god: '/god-admin/dashboard',        // ← Cambiar de 'god_admin' a 'god'
+  god_admin: '/god-admin/dashboard',  // ← Dejar ambos por si acaso
+  congress: '/congreso/dashboard',
+  stand: '/stand/dashboard',
+  attendee: '/asistente/inicio',
+}
+
+// Esperar a que Supabase guarde la sesión
+await supabase.auth.getSession()
+
+window.location.href = routes[profile.role] ?? '/login'
   }
 
   return (
