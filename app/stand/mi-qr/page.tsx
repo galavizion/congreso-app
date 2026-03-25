@@ -37,24 +37,44 @@ export default function MiQRPage() {
     load()
   }, [])
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
+  if (loading) return (
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <p className="text-sm text-gray-500">Cargando...</p>
+      </div>
+    </div>
+  )
 
   const qrValue = `${process.env.NEXT_PUBLIC_APP_URL}/scan/${stand?.qr_code}`
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
-        <Link href="/stand/dashboard" className="text-gray-400 text-xl">‹</Link>
-        <h1 className="text-lg font-semibold text-gray-900">Mi QR</h1>
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+        <div className="px-6 py-6">
+          <div className="flex items-center gap-4 max-w-5xl mx-auto">
+            <Link
+              href="/stand/dashboard"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-white">Mi QR</h1>
+              <p className="text-sm text-white/80 mt-0.5">Captura leads con este código</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-1 bg-cyan-400"></div>
       </div>
 
-      <div className="px-4 py-8 flex flex-col items-center gap-6 max-w-sm mx-auto">
+      <div className="px-6 py-8 flex flex-col items-center gap-4 max-w-sm mx-auto">
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm flex flex-col items-center gap-4 w-full">
+        <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm flex flex-col items-center gap-4 w-full">
           <p className="font-semibold text-gray-900 text-lg">{stand?.name}</p>
-          <p className="text-sm text-gray-400">{stand?.brand}</p>
+          <p className="text-sm text-gray-500">{stand?.brand}</p>
 
           {/* QR */}
           <div className="p-4 bg-white border border-gray-100 rounded-xl">
@@ -66,7 +86,7 @@ export default function MiQRPage() {
           </p>
         </div>
 
-        <div className="bg-amber-50 rounded-2xl p-4 w-full">
+        <div className="bg-amber-50 rounded-xl p-4 w-full border border-amber-100">
           <p className="text-sm text-amber-700 text-center font-medium">
             💡 Imprime este QR y colócalo en tu stand
           </p>

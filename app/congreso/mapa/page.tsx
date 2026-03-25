@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function CongresoMapaPage() {
@@ -78,22 +79,42 @@ export default function CongresoMapaPage() {
     setUploading(false)
   }
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
+  if (loading) return (
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <p className="text-sm text-gray-500">Cargando...</p>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-400 text-xl">‹</button>
-        <h1 className="text-lg font-semibold text-gray-900">Mapa del congreso</h1>
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+        <div className="px-6 py-6">
+          <div className="flex items-center gap-4 max-w-5xl mx-auto">
+            <Link
+              href="/congreso/dashboard"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-white">Mapa del Congreso</h1>
+              <p className="text-sm text-white/80 mt-0.5">Sube el plano del evento</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-1 bg-emerald-400"></div>
       </div>
 
-      <div className="px-4 py-6 flex flex-col gap-4 max-w-2xl mx-auto">
+      <div className="px-6 py-8 flex flex-col gap-4 max-w-5xl mx-auto">
 
         {/* Mapa actual */}
         {mapUrl ? (
-          <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
+          <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm">
             <img
               src={mapUrl}
               alt="Mapa del congreso"
@@ -101,21 +122,25 @@ export default function CongresoMapaPage() {
             />
           </div>
         ) : (
-          <div className="bg-white rounded-2xl p-8 text-center text-gray-400 text-sm">
-            No hay mapa subido aún.
+          <div className="bg-white rounded-xl p-16 text-center border border-gray-100 shadow-sm">
+            <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
+              <span className="text-4xl">🗺️</span>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">No hay mapa subido</h3>
+            <p className="text-sm text-gray-500">Sube el plano del evento para los asistentes</p>
           </div>
         )}
 
         {/* Upload */}
-        <div className="bg-white rounded-2xl p-5 flex flex-col gap-3">
-          <p className="text-sm font-medium text-gray-600">
+        <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex flex-col gap-3">
+          <p className="text-sm font-semibold text-gray-700">
             {mapUrl ? 'Reemplazar mapa' : 'Subir mapa'}
           </p>
           <p className="text-xs text-gray-400">
             Acepta imágenes JPG, PNG o PDF escaneado
           </p>
 
-          <label className="bg-gray-900 text-white rounded-xl px-4 py-3 text-base font-medium text-center cursor-pointer active:bg-gray-700 transition-colors">
+          <label className="bg-indigo-600 text-white text-sm font-semibold px-5 py-3 rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-colors text-center cursor-pointer disabled:opacity-50">
             {uploading ? 'Subiendo...' : 'Seleccionar imagen'}
             <input
               type="file"

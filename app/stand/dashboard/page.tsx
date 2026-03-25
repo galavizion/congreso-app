@@ -36,60 +36,77 @@ export default function StandDashboardPage() {
     load()
   }, [])
 
-  if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
+  if (loading) return (
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <p className="text-sm text-gray-500">Cargando...</p>
+      </div>
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4">
-        <h1 className="text-xl font-bold text-gray-900">WinWin</h1>
-        <p className="text-sm text-gray-400 mt-0.5">{stand?.name ?? 'Mi stand'}</p>
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+        <div className="px-6 py-6">
+          <div className="flex items-center justify-between max-w-5xl mx-auto">
+            <div>
+              <h1 className="text-xl font-bold text-white">WinWin</h1>
+              <p className="text-sm text-white/80 mt-0.5">{stand?.name ?? 'Mi stand'}</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-1 bg-cyan-400"></div>
       </div>
 
-      {/* Menu */}
-      <div className="px-4 py-6 flex flex-col gap-4 max-w-2xl mx-auto">
+      <div className="px-6 py-8 flex flex-col gap-3 max-w-5xl mx-auto">
 
         <Link
           href="/stand/mi-qr"
-          className="bg-white rounded-2xl p-5 shadow-sm flex items-center gap-4 active:bg-gray-50 transition-colors"
+          className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
         >
-          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
-            📱
+          <div className="w-10 h-10 rounded-lg bg-cyan-50 flex items-center justify-center">
+            <span className="text-2xl">📱</span>
           </div>
-          <div>
-            <p className="font-semibold text-gray-900">Mi QR</p>
-            <p className="text-sm text-gray-400">Muéstralo para capturar leads</p>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Mi QR</p>
+            <p className="text-sm text-gray-500 mt-0.5">Muéstralo para capturar leads</p>
           </div>
-          <span className="text-gray-300 text-xl ml-auto">›</span>
+          <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </Link>
 
         <Link
           href="/stand/noticias"
-          className="bg-white rounded-2xl p-5 shadow-sm flex items-center gap-4 active:bg-gray-50 transition-colors"
+          className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
         >
-          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
-            📢
+          <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center">
+            <span className="text-2xl">📢</span>
           </div>
-          <div>
-            <p className="font-semibold text-gray-900">Noticias</p>
-            <p className="text-sm text-gray-400">Publica updates de tu stand</p>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Noticias</p>
+            <p className="text-sm text-gray-500 mt-0.5">Publica updates de tu stand</p>
           </div>
-          <span className="text-gray-300 text-xl ml-auto">›</span>
+          <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </Link>
 
         <Link
           href="/stand/leads"
-          className="bg-white rounded-2xl p-5 shadow-sm flex items-center gap-4 active:bg-gray-50 transition-colors"
+          className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
         >
-          <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-2xl">
-            👥
+          <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
+            <span className="text-2xl">👥</span>
           </div>
-          <div>
-            <p className="font-semibold text-gray-900">Leads</p>
-            <p className="text-sm text-gray-400">Asistentes que escanearon tu QR</p>
+          <div className="flex-1">
+            <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Leads</p>
+            <p className="text-sm text-gray-500 mt-0.5">Asistentes que escanearon tu QR</p>
           </div>
-          <span className="text-gray-300 text-xl ml-auto">›</span>
+          <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
         </Link>
 
       </div>

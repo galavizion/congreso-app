@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function NuevoHorarioPage() {
@@ -60,16 +61,29 @@ export default function NuevoHorarioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-400 text-xl">‹</button>
-        <h1 className="text-lg font-semibold text-gray-900">Nueva conferencia</h1>
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+        <div className="px-6 py-6">
+          <div className="flex items-center gap-4 max-w-5xl mx-auto">
+            <Link
+              href="/congreso/horarios"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-white">Nueva Conferencia</h1>
+              <p className="text-sm text-white/80 mt-0.5">Agrega una sesión al horario</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-1 bg-violet-400"></div>
       </div>
 
-      <div className="px-4 py-6 flex flex-col gap-4 max-w-2xl mx-auto">
-        <div className="bg-white rounded-2xl p-5 flex flex-col gap-4">
+      <div className="px-6 py-8 flex flex-col gap-4 max-w-5xl mx-auto">
+        <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex flex-col gap-4">
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Título</label>
@@ -78,7 +92,7 @@ export default function NuevoHorarioPage() {
               value={form.title}
               onChange={handleChange}
               placeholder="Ej. Avances en cardiología"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
             />
           </div>
 
@@ -89,7 +103,7 @@ export default function NuevoHorarioPage() {
               value={form.speaker}
               onChange={handleChange}
               placeholder="Ej. Dr. Juan Pérez"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
             />
           </div>
 
@@ -100,7 +114,7 @@ export default function NuevoHorarioPage() {
               value={form.room}
               onChange={handleChange}
               placeholder="Ej. Auditorio A"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
             />
           </div>
 
@@ -112,7 +126,7 @@ export default function NuevoHorarioPage() {
                 type="datetime-local"
                 value={form.starts_at}
                 onChange={handleChange}
-                className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+                className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
               />
             </div>
             <div className="flex flex-col gap-1 flex-1">
@@ -122,7 +136,7 @@ export default function NuevoHorarioPage() {
                 type="datetime-local"
                 value={form.ends_at}
                 onChange={handleChange}
-                className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+                className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
               />
             </div>
           </div>
@@ -136,7 +150,7 @@ export default function NuevoHorarioPage() {
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="bg-gray-900 text-white rounded-xl px-4 py-4 text-base font-medium hover:bg-gray-700 active:bg-gray-800 transition-colors disabled:opacity-50 w-full"
+          className="bg-indigo-600 text-white text-sm font-semibold px-5 py-4 rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-colors disabled:opacity-50 w-full"
         >
           {loading ? 'Guardando...' : 'Crear conferencia'}
         </button>

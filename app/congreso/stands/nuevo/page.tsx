@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 interface StandForm {
@@ -41,7 +42,7 @@ export default function NuevoStandCongresPage() {
     setError('')
 
     const { data: { user } } = await supabase.auth.getUser()
-    
+
     if (!user) {
       router.push('/login')
       return
@@ -88,10 +89,10 @@ console.log('✅ Usuario creado:', newUserId)
       try {
         const fileExt = form.logo.name.split('.').pop()
         const tempFileName = `temp-${Date.now()}.${fileExt}`
-        
+
         console.log('🔵 Intentando subir:', tempFileName)
         console.log('🔵 Tamaño archivo:', form.logo.size, 'bytes')
-        
+
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('stand_logos')
           .upload(tempFileName, form.logo, {
@@ -107,7 +108,7 @@ console.log('✅ Usuario creado:', newUserId)
           const { data: urlData } = supabase.storage
             .from('stand_logos')
             .getPublicUrl(tempFileName)
-          
+
           logoUrl = urlData.publicUrl
           console.log('✅ URL pública:', logoUrl)
         }
@@ -138,33 +139,33 @@ console.log('✅ Usuario creado:', newUserId)
     console.log('✅ Stand creado con logo:', stand.logo_url)
 
     // 4. Renombrar archivo con el ID del stand
- 
+
 if (logoUrl && form.logo) {
   const fileExt = form.logo.name.split('.').pop()
   const oldFileName = logoUrl.split('/').pop()
   const newFileName = `${stand.id}-${Date.now()}.${fileExt}`
-  
+
   if (oldFileName) {
     const { error: moveError } = await supabase.storage
       .from('stand_logos')
       .move(oldFileName, newFileName)
-    
+
     if (!moveError) {
       const { data: urlData } = supabase.storage
         .from('stand_logos')
         .getPublicUrl(newFileName)
-      
+
       // Actualizar con el nombre final
       await supabase
         .from('stands')
         .update({ logo_url: urlData.publicUrl })
         .eq('id', stand.id)
-      
+
       console.log('✅ Logo renombrado:', newFileName)
     }
   }
 }
- 
+
    // 5. Crear perfil del stand
 const { error: profileError } = await supabase
   .from('profiles')
@@ -184,24 +185,37 @@ const { error: profileError } = await supabase
     }
 
     console.log('✅ Stand creado correctamente')
-    
+
     // ✅ Redirect que mantiene sesión
     window.location.href = '/congreso/stands'
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-
-      {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center gap-3">
-        <button onClick={() => router.back()} className="text-gray-400 text-xl">‹</button>
-        <h1 className="text-lg font-semibold text-gray-900">Nuevo stand</h1>
+    <div className="min-h-screen bg-[#FAFAFA]">
+      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+        <div className="px-6 py-6">
+          <div className="flex items-center gap-4 max-w-5xl mx-auto">
+            <Link
+              href="/congreso/stands"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M19 12H5M12 19l-7-7 7-7"/>
+              </svg>
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-white">Nuevo Stand</h1>
+              <p className="text-sm text-white/80 mt-0.5">Registra un nuevo expositor</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-1 bg-cyan-400"></div>
       </div>
 
-      <div className="px-4 py-6 flex flex-col gap-4 max-w-2xl mx-auto">
+      <div className="px-6 py-8 flex flex-col gap-4 max-w-5xl mx-auto">
 
-        <div className="bg-white rounded-2xl p-5 flex flex-col gap-4">
-          <p className="text-sm font-medium text-gray-500">Datos del stand</p>
+        <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex flex-col gap-4">
+          <p className="text-sm font-semibold text-gray-700">Datos del stand</p>
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Nombre</label>
@@ -210,7 +224,7 @@ const { error: profileError } = await supabase
               value={form.name}
               onChange={handleChange}
               placeholder="Ej. Stand Farmacéutica XYZ"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
             />
           </div>
 
@@ -221,7 +235,7 @@ const { error: profileError } = await supabase
               value={form.brand}
               onChange={handleChange}
               placeholder="Ej. Farmacéutica XYZ"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
             />
           </div>
 
@@ -233,7 +247,7 @@ const { error: profileError } = await supabase
               onChange={handleChange}
               placeholder="Breve descripción del stand"
               rows={3}
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400 resize-none"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors resize-none"
             />
           </div>
 
@@ -243,7 +257,7 @@ const { error: profileError } = await supabase
               type="file"
               accept="image/jpeg,image/png,image/webp"
               onChange={handleFileChange}
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
             />
             {form.logo && (
               <p className="text-xs text-gray-500 mt-1">
@@ -253,8 +267,8 @@ const { error: profileError } = await supabase
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl p-5 flex flex-col gap-4">
-          <p className="text-sm font-medium text-gray-500">Acceso del expositor</p>
+        <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm flex flex-col gap-4">
+          <p className="text-sm font-semibold text-gray-700">Acceso del expositor</p>
 
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-gray-600">Correo</label>
@@ -264,7 +278,7 @@ const { error: profileError } = await supabase
               value={form.email}
               onChange={handleChange}
               placeholder="correo@stand.com"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
             />
           </div>
 
@@ -276,7 +290,7 @@ const { error: profileError } = await supabase
               value={form.password}
               onChange={handleChange}
               placeholder="Mínimo 6 caracteres"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-base outline-none focus:border-indigo-400 transition-colors"
             />
           </div>
         </div>
@@ -288,7 +302,7 @@ const { error: profileError } = await supabase
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className="bg-gray-900 text-white rounded-xl px-4 py-4 text-base font-medium hover:bg-gray-700 active:bg-gray-800 transition-colors disabled:opacity-50 w-full"
+          className="bg-indigo-600 text-white text-sm font-semibold px-5 py-2.5 rounded-lg hover:bg-indigo-700 active:bg-indigo-800 transition-colors disabled:opacity-50 w-full py-4"
         >
           {loading ? 'Guardando...' : 'Crear stand'}
         </button>
