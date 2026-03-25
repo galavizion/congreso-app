@@ -124,19 +124,22 @@ export default function NuevoRegaloPage() {
           </div>
 
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-gray-600">Imagen (opcional)</label>
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={handleImageChange}
-              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-            />
-            {form.image && (
-              <p className="text-xs text-gray-500 mt-1">
-                {form.image.name} ({(form.image.size / 1024).toFixed(1)} KB)
-              </p>
-            )}
-          </div>
+  <label className="text-sm font-medium text-gray-600">Imagen (opcional)</label>
+  <p className="text-xs text-gray-400 mb-2">
+    💡 Sube una imagen cuadrada (500x500px recomendado) para mejores resultados
+  </p>
+  <input
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    onChange={handleImageChange}
+    className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+  />
+  {form.image && (
+    <p className="text-xs text-gray-500 mt-1">
+      {form.image.name} ({(form.image.size / 1024).toFixed(1)} KB)
+    </p>
+  )}
+</div>
 
           <div className="flex gap-3">
             <div className="flex flex-col gap-1 flex-1">
