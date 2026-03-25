@@ -74,18 +74,33 @@ export default function CongresoStandsPage() {
           </div>
         )}
 
-        {stands.map(stand => (
-          <div
-            key={stand.id}
-            className="bg-white rounded-2xl p-5 shadow-sm flex items-center justify-between"
-          >
-            <div>
-              <p className="font-semibold text-gray-900">{stand.name}</p>
-              <p className="text-sm text-gray-400 mt-0.5">{stand.brand ?? 'Sin marca'}</p>
-            </div>
-            <span className="text-gray-300 text-xl">›</span>
-          </div>
-        ))}
+    {stands.map(stand => (
+      <Link
+  key={stand.id}
+  href={`/congreso/stands/${stand.id}`}
+  className="bg-white rounded-2xl p-5 shadow-sm flex items-center justify-between cursor-pointer hover:shadow-md transition-shadow"
+>
+  <div className="flex items-center gap-3">
+    {stand.logo_url ? (
+      <img 
+        src={stand.logo_url} 
+        alt={stand.name}
+        className="w-12 h-12 rounded-lg object-cover"
+      />
+    ) : (
+      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center text-gray-400 text-xs font-medium">
+        {stand.name.charAt(0)}
+      </div>
+    )}
+    <div>
+      <p className="font-semibold text-gray-900">{stand.name}</p>
+      <p className="text-sm text-gray-400 mt-0.5">{stand.brand ?? 'Sin marca'}</p>
+    </div>
+  </div>
+  <span className="text-gray-300 text-xl">›</span>
+</Link>
+
+))}
 
       </div>
     </div>

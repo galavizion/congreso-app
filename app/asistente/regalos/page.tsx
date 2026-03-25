@@ -12,6 +12,7 @@ export default function RegalosPage() {
   const [gifts, setGifts] = useState<any[]>([])
   const [redemptions, setRedemptions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+const [redeeming, setRedeeming] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -64,6 +65,98 @@ export default function RegalosPage() {
     load()
   }, [])
 
+  async function handleRedeem(gift: any) {
+  setRedeeming(gift.id)
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) {
+    router.push('/login')
+    return
+  }
+
+  try {
+    // 1. Verificar puntos y stock
+    if (totalPoints < gift.points_cost) {
+      alert('No tienes suficientes puntos')
+      setRedeeming(null)
+      return
+    }
+
+    if (gift.stock <= 0) {
+      alert('Este regalo ya no está disponible')
+      setRedeeming(null)
+      return
+    }
+
+    // 2. Obtener puntos actuales
+    const { data: pointsData } = await supabase
+      .from('points')
+      .select('*')
+      .eq('attendee_id', session.user.id)
+      .maybeSingle()
+
+    if (!pointsData) {
+      alert('Error al obtener puntos')
+      setRedeeming(null)
+      return
+    }
+
+    // 3. Descontar puntos
+    const { error: updateError } = await supabase
+      .from('points')
+      .update({ total_points: pointsData.total_points - gift.points_cost })
+      .eq('id', pointsData.id)
+
+    if (updateError) {
+      alert('Error al descontar puntos')
+      setRedeeming(null)
+      return
+    }
+
+    // 4. Descontar stock
+    const { error: stockError } = await supabase
+      .from('gifts')
+      .update({ stock: gift.stock - 1 })
+      .eq('id', gift.id)
+
+    if (stockError) {
+      // Revertir puntos si falla
+      await supabase
+        .from('points')
+        .update({ total_points: pointsData.total_points })
+        .eq('id', pointsData.id)
+      
+      alert('Error al actualizar stock')
+      setRedeeming(null)
+      return
+    }
+
+    // 5. Crear registro de canje
+    const { error: redemptionError } = await supabase
+      .from('redemptions')
+      .insert({
+        attendee_id: session.user.id,
+        gift_id: gift.id,
+        points_spent: gift.points_cost,
+        status: 'pending',
+      })
+
+    if (redemptionError) {
+      alert('Error al registrar canje')
+      setRedeeming(null)
+      return
+    }
+
+    // 6. Recargar datos
+    window.location.reload()
+
+  } catch (error) {
+    console.error('Error en canje:', error)
+    alert('Ocurrió un error al canjear')
+    setRedeeming(null)
+  }
+}
+
   if (loading) return <div className="min-h-screen flex items-center justify-center"><p className="text-gray-400">Cargando...</p></div>
 
   return (
@@ -100,32 +193,44 @@ export default function RegalosPage() {
         {gifts.map(gift => {
           const canRedeem = totalPoints >= gift.points_cost
           return (
-            <div
-              key={gift.id}
-              className="bg-white rounded-2xl p-5 shadow-sm flex items-center justify-between gap-4"
-            >
-              <div className="flex-1">
-                <p className="font-semibold text-gray-900">{gift.name}</p>
-                {gift.description && (
-                  <p className="text-sm text-gray-400 mt-0.5">{gift.description}</p>
-                )}
-                <p className="text-sm font-medium text-amber-600 mt-1">
-                  {gift.points_cost} puntos
-                </p>
-                <p className="text-xs text-gray-300 mt-0.5">
-                  {gift.stock} disponibles
-                </p>
-              </div>
-              <button
-                disabled={!canRedeem}
-                className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                  canRedeem
-                    ? 'bg-gray-900 text-white active:bg-gray-700'
-                    : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                }`}
-              >
-                {canRedeem ? 'Canjear' : 'Sin puntos'}
-              </button>
+          <div
+  key={gift.id}
+  className="bg-white rounded-2xl p-5 shadow-sm flex items-center gap-4"
+>
+  {/* Imagen del regalo */}
+  {gift.image_url && (
+    <img 
+      src={gift.image_url} 
+      alt={gift.name}
+      className="w-20 h-20 rounded-xl object-cover shrink-0"
+    />
+  )}
+
+  <div className="flex-1">
+    <p className="font-semibold text-gray-900">{gift.name}</p>
+    {gift.description && (
+      <p className="text-sm text-gray-400 mt-0.5">{gift.description}</p>
+    )}
+    <p className="text-sm font-medium text-amber-600 mt-1">
+      {gift.points_cost} puntos
+    </p>
+    <p className="text-xs text-gray-300 mt-0.5">
+      {gift.stock} disponibles
+    </p>
+  </div>
+
+  <button
+    onClick={() => handleRedeem(gift)}
+    disabled={!canRedeem || redeeming === gift.id}
+    className={`shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
+      canRedeem && redeeming !== gift.id
+        ? 'bg-gray-900 text-white active:bg-gray-700'
+        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+    }`}
+  >
+    {redeeming === gift.id ? 'Canjeando...' : canRedeem ? 'Canjear' : 'Sin puntos'}
+  </button>
+
             </div>
           )
         })}

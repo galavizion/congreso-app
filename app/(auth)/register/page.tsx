@@ -56,9 +56,9 @@ function RegisterForm() {
 
     // 3. Si venía de un QR, procesar el escaneo
     if (qrCode) {
-      router.push(`/scan/${qrCode}`)
+      window.location.href = `/scan/${qrCode}`
     } else {
-      router.push('/asistente/inicio')
+      window.location.href = '/asistente/inicio'
     }
   }
 

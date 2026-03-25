@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 export default function NuevoRegaloPage() {
   const router = useRouter()
   const supabase = createClient()
+  
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
@@ -14,10 +15,16 @@ export default function NuevoRegaloPage() {
     description: '',
     points_cost: '',
     stock: '',
+    image: null as File | null,
   })
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
     setForm({ ...form, [e.target.name]: e.target.value })
+  }
+
+  function handleImageChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0] || null
+    setForm({ ...form, image: file })
   }
 
   async function handleSubmit() {
@@ -27,31 +34,58 @@ export default function NuevoRegaloPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
+    // Obtener perfil
     const { data: profile } = await supabase
       .from('profiles')
-      .select('*, congresses(*)')
+      .select('*')
       .eq('id', user.id)
       .single()
 
-    const congress = (profile as any)?.congresses
-
-    const { error } = await supabase
-      .from('gifts')
-      .insert({
-        congress_id: congress.id,
-        name: form.name,
-        description: form.description,
-        points_cost: parseInt(form.points_cost),
-        stock: parseInt(form.stock),
-      })
-
-    if (error) {
-      setError(error.message)
+    if (!profile || !profile.congress_id) {
+      setError('No se encontró el congreso')
       setLoading(false)
       return
     }
 
-    router.push('/congreso/regalos')
+    // Subir imagen si existe
+    let imageUrl: string | null = null
+
+    if (form.image) {
+      const fileExt = form.image.name.split('.').pop()
+      const fileName = `gift-${Date.now()}.${fileExt}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from('stand_logos')
+        .upload(fileName, form.image)
+
+      if (!uploadError) {
+        const { data: { publicUrl } } = supabase.storage
+          .from('stand_logos')
+          .getPublicUrl(fileName)
+        
+        imageUrl = publicUrl
+      }
+    }
+
+    // Crear regalo CON imagen
+    const { error: insertError } = await supabase
+      .from('gifts')
+      .insert({
+        congress_id: profile.congress_id,
+        name: form.name,
+        description: form.description,
+        points_cost: parseInt(form.points_cost),
+        stock: parseInt(form.stock),
+        image_url: imageUrl,
+      })
+
+    if (insertError) {
+      setError(insertError.message)
+      setLoading(false)
+      return
+    }
+
+    window.location.href = '/congreso/regalos'
   }
 
   return (
@@ -87,6 +121,21 @@ export default function NuevoRegaloPage() {
               rows={3}
               className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400 resize-none"
             />
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-gray-600">Imagen (opcional)</label>
+            <input
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              onChange={handleImageChange}
+              className="border border-gray-200 rounded-xl px-4 py-3 text-base outline-none focus:border-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+            />
+            {form.image && (
+              <p className="text-xs text-gray-500 mt-1">
+                {form.image.name} ({(form.image.size / 1024).toFixed(1)} KB)
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3">
