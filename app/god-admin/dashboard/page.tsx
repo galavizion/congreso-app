@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 type Congress = {
   id: string
   name: string
+  logo_url: string | null
   created_at: string
 }
 
@@ -36,24 +37,34 @@ export default function GodAdminDashboard() {
 
   async function handleCreateCongress(e: React.FormEvent) {
     e.preventDefault()
-    if (!newCongressName.trim()) return
-
     setCreating(true)
+
     const { error } = await supabase
       .from('congresses')
-      .insert([{ name: newCongressName.trim() }])
+      .insert([{ name: newCongressName }])
 
     if (!error) {
       setNewCongressName('')
       setShowCreateForm(false)
       loadCongresses()
+    } else {
+      alert('Error al crear congreso: ' + error.message)
     }
+
     setCreating(false)
   }
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+        <div className="text-gray-500">Cargando...</div>
+      </div>
+    )
   }
 
   return (
@@ -63,12 +74,12 @@ export default function GodAdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold">God Admin</h1>
-              <p className="text-white/80 text-sm mt-1">Gestión de Congresos</p>
+              <h1 className="text-3xl font-bold">God Admin</h1>
+              <p className="text-white/80 text-sm mt-1">Panel de administración principal</p>
             </div>
             <button
               onClick={handleLogout}
-              className="bg-white/20 backdrop-blur-sm border border-white/30 text-white px-4 py-2 rounded-lg hover:bg-white/30 transition-colors text-sm font-medium"
+              className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-lg transition-colors font-medium"
             >
               Cerrar Sesión
             </button>
@@ -82,7 +93,7 @@ export default function GodAdminDashboard() {
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6">
             <div className="text-gray-500 text-sm font-medium mb-1">Total Congresos</div>
             <div className="text-3xl font-bold text-gray-900">{congresses.length}</div>
@@ -103,18 +114,19 @@ export default function GodAdminDashboard() {
         {/* Create Form */}
         {showCreateForm && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-6">
+            <h3 className="font-bold text-gray-900 mb-4">Nuevo Congreso</h3>
             <form onSubmit={handleCreateCongress} className="flex gap-3">
               <input
                 type="text"
-                placeholder="Nombre del congreso"
                 value={newCongressName}
                 onChange={(e) => setNewCongressName(e.target.value)}
+                placeholder="Nombre del congreso"
                 className="flex-1 border border-gray-200 rounded-lg px-4 py-2 outline-none focus:border-indigo-400"
-                autoFocus
+                required
               />
               <button
                 type="submit"
-                disabled={creating || !newCongressName.trim()}
+                disabled={creating}
                 className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium disabled:opacity-50"
               >
                 {creating ? 'Creando...' : 'Crear'}
@@ -123,10 +135,8 @@ export default function GodAdminDashboard() {
           </div>
         )}
 
-        {/* Congresses List */}
-        {loading ? (
-          <div className="text-center py-12 text-gray-500">Cargando...</div>
-        ) : congresses.length === 0 ? (
+        {/* Congresses Grid */}
+        {congresses.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
             <div className="text-gray-400 text-lg mb-2">No hay congresos creados</div>
             <p className="text-gray-500 text-sm">Crea tu primer congreso para comenzar</p>
@@ -136,18 +146,37 @@ export default function GodAdminDashboard() {
             {congresses.map((congress) => (
               <div
                 key={congress.id}
-                className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow"
+                onClick={() => router.push(`/god-admin/congresos/${congress.id}`)}
+                className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 hover:shadow-md transition-shadow cursor-pointer"
               >
-                <h3 className="font-bold text-gray-900 text-lg mb-2">{congress.name}</h3>
-                <p className="text-gray-500 text-sm mb-4">
-                  Creado: {new Date(congress.created_at).toLocaleDateString('es-MX')}
-                </p>
-                <button
-                  onClick={() => router.push(`/god-admin/congresos/${congress.id}`)}
-                  className="text-indigo-600 hover:text-indigo-700 font-medium text-sm"
-                >
-                  Ver detalles →
-                </button>
+                <div className="flex items-start gap-4">
+                  {/* Logo */}
+                  {congress.logo_url ? (
+                    <img 
+                      src={congress.logo_url} 
+                      alt={congress.name}
+                      className="w-12 h-12 rounded-lg object-cover bg-gray-100"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                      <span className="text-xl font-bold text-indigo-600">
+                        {congress.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-bold text-gray-900 mb-1 truncate">{congress.name}</h3>
+                    <p className="text-gray-500 text-sm">
+                      {new Date(congress.created_at).toLocaleDateString('es-MX', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>

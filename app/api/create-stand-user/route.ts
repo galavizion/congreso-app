@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
-    const { email, password } = await request.json()
+    const { email, password, name, standId, congressId } = await request.json()
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,17 +16,36 @@ export async function POST(request: Request) {
       }
     )
 
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    // Crear usuario en auth
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
-      email_confirm: true,
+      email_confirm: true
     })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ user: data.user })
+    // Crear profile
+    const { error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .insert([{
+        id: authData.user.id,
+        email,
+        name,
+        role: 'stand',
+        stand_id: standId,
+        congress_id: congressId
+      }])
+
+    if (profileError) {
+      // Rollback: eliminar usuario de auth
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+      return NextResponse.json({ error: profileError.message }, { status: 400 })
+    }
+
+    return NextResponse.json({ success: true, userId: authData.user.id })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
