@@ -43,7 +43,7 @@ if (!profile) {
 const routes: Record<string, string> = {
   god: '/god-admin/dashboard',        // ← Cambiar de 'god_admin' a 'god'
   god_admin: '/god-admin/dashboard',  // ← Dejar ambos por si acaso
-  congress: '/congreso/dashboard',
+  congress: '/congress/dashboard',
   stand: '/stand/dashboard',
   attendee: '/asistente/inicio',
 }
