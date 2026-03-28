@@ -1,20 +1,24 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
     const { email, password, name, congressId } = await request.json()
     
-    const supabase = await createClient()
-
-    // Verificar que quien hace la request tenga permiso
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) {
-      return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-    }
+    // Crear cliente con service role (admin)
+    const supabaseAdmin = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
 
     // Crear usuario en Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
       email,
       password,
       email_confirm: true
@@ -25,7 +29,7 @@ export async function POST(request: Request) {
     }
 
     // Crear perfil
-    const { error: profileError } = await supabase
+    const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
         id: authData.user.id,
@@ -36,8 +40,8 @@ export async function POST(request: Request) {
       })
 
     if (profileError) {
-      // Rollback: eliminar usuario de auth
-      await supabase.auth.admin.deleteUser(authData.user.id)
+      // Rollback: eliminar usuario
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
       return NextResponse.json({ error: profileError.message }, { status: 400 })
     }
 
