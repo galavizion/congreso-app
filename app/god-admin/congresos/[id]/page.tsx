@@ -48,6 +48,10 @@ export default function CongressDetailPage({
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
 
+
+  const [selectedRole, setSelectedRole] = useState('congress')
+
+
   // Edit modal state
   const [editingUser, setEditingUser] = useState<CongressUser | null>(null)
   const [editName, setEditName] = useState('')
@@ -420,6 +424,20 @@ export default function CongressDetailPage({
                       required
                     />
                   </div>
+                  <div>
+  <label className="block text-xs font-medium text-gray-700 mb-1">
+    Rol
+  </label>
+  <select
+    value={selectedRole}
+    onChange={(e) => setSelectedRole(e.target.value)}
+    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400"
+  >
+    <option value="congress">Congress (Admin del congreso)</option>
+    <option value="store">Store (Tienda de canjes)</option>
+  </select>
+</div>
+
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Email
