@@ -90,18 +90,24 @@ export default function GiftsManager({
     if (data) setGifts(data)
   }
 async function loadRedemptions() {
+  console.log('🔍 loadRedemptions: Starting...', { congressId })
+  
   // Primero cargar todos los gifts del congreso
   const { data: giftsData } = await supabase
     .from('gifts')
     .select('id, name')
     .eq('congress_id', congressId)
 
+  console.log('🎁 Gifts loaded:', giftsData)
+
   if (!giftsData || giftsData.length === 0) {
+    console.log('⚠️ No gifts found')
     setRedemptions([])
     return
   }
 
   const giftIds = giftsData.map(g => g.id)
+  console.log('🔑 Gift IDs:', giftIds)
 
   // Fetch redemptions de esos gifts
   const { data: redemptionsData } = await supabase
@@ -109,10 +115,15 @@ async function loadRedemptions() {
     .select('*')
     .in('gift_id', giftIds)
 
+  console.log('✨ Redemptions loaded:', redemptionsData)
+
   if (!redemptionsData || redemptionsData.length === 0) {
+    console.log('⚠️ No redemptions found')
     setRedemptions([])
     return
   }
+
+  // ... resto del código igual
 
   // Fetch attendees
   const attendeeIds = [...new Set(redemptionsData.map(r => r.attendee_id))]
