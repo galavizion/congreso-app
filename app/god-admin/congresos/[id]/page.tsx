@@ -8,13 +8,13 @@ import ScheduleManager from '@/components/congress/ScheduleManager'
 import NewsManager from '@/components/congress/NewsManager'
 import StandsManager from '@/components/congress/StandsManager' 
 import AttendeesManager from '@/components/congress/AttendeesManager'
-import GiftsManager from '@/components/congress/GiftsManager' // ← NUEVO
+import GiftsManager from '@/components/congress/GiftsManager'
 
 type Congress = {
   id: string
   name: string
   logo_url: string | null
-   map_url: string | null 
+  map_url: string | null 
   created_at: string
 }
 
@@ -22,6 +22,7 @@ type CongressUser = {
   id: string
   name: string
   email: string
+  role: string
   created_at: string
 }
 
@@ -45,16 +46,14 @@ export default function CongressDetailPage({
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [selectedRole, setSelectedRole] = useState('congress')
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState('')
-
-
-  const [selectedRole, setSelectedRole] = useState('congress')
-
 
   // Edit modal state
   const [editingUser, setEditingUser] = useState<CongressUser | null>(null)
   const [editName, setEditName] = useState('')
+  const [editRole, setEditRole] = useState('')
   const [editPassword, setEditPassword] = useState('')
   const [updating, setUpdating] = useState(false)
   const [editError, setEditError] = useState('')
@@ -83,9 +82,9 @@ export default function CongressDetailPage({
 
     const { data: usersData } = await supabase
       .from('profiles')
-      .select('id, name, email, created_at')
+      .select('id, name, email, role, created_at')
       .eq('congress_id', id)
-      .eq('role', 'congress')
+      .in('role', ['congress', 'store'])
       .order('created_at', { ascending: false })
     
     if (usersData) setUsers(usersData)
@@ -163,6 +162,7 @@ export default function CongressDetailPage({
           email,
           password,
           name,
+          role: selectedRole,
           congressId: id,
         }),
       })
@@ -178,6 +178,7 @@ export default function CongressDetailPage({
       setName('')
       setEmail('')
       setPassword('')
+      setSelectedRole('congress')
       setShowCreateForm(false)
       loadCongressData()
     } catch (err: any) {
@@ -190,6 +191,7 @@ export default function CongressDetailPage({
   function openEditModal(user: CongressUser) {
     setEditingUser(user)
     setEditName(user.name)
+    setEditRole(user.role)
     setEditPassword('')
     setEditError('')
   }
@@ -197,6 +199,7 @@ export default function CongressDetailPage({
   function closeEditModal() {
     setEditingUser(null)
     setEditName('')
+    setEditRole('')
     setEditPassword('')
     setEditError('')
   }
@@ -215,6 +218,7 @@ export default function CongressDetailPage({
         body: JSON.stringify({
           userId: editingUser.id,
           name: editName,
+          role: editRole,
           password: editPassword || undefined,
         }),
       })
@@ -292,14 +296,14 @@ export default function CongressDetailPage({
   }
 
   const tabs = [
-  { id: 'general' as Tab, label: 'General', icon: '⚙️' },
-  { id: 'mapa' as Tab, label: 'Mapa', icon: '🗺️' },
-  { id: 'horarios' as Tab, label: 'Horarios', icon: '📅' },
-  { id: 'noticias' as Tab, label: 'Noticias', icon: '📰' },
-  { id: 'stands' as Tab, label: 'Stands', icon: '🏪' },
-  { id: 'asistentes' as Tab, label: 'Asistentes', icon: '👥' },
-  { id: 'premios' as Tab, label: 'Premios', icon: '🎁' } // ← NUEVO
-]
+    { id: 'general' as Tab, label: 'General', icon: '⚙️' },
+    { id: 'mapa' as Tab, label: 'Mapa', icon: '🗺️' },
+    { id: 'horarios' as Tab, label: 'Horarios', icon: '📅' },
+    { id: 'noticias' as Tab, label: 'Noticias', icon: '📰' },
+    { id: 'stands' as Tab, label: 'Stands', icon: '🏪' },
+    { id: 'asistentes' as Tab, label: 'Asistentes', icon: '👥' },
+    { id: 'premios' as Tab, label: 'Premios', icon: '🎁' }
+  ]
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] pb-20">
@@ -425,18 +429,18 @@ export default function CongressDetailPage({
                     />
                   </div>
                   <div>
-  <label className="block text-xs font-medium text-gray-700 mb-1">
-    Rol
-  </label>
-  <select
-    value={selectedRole}
-    onChange={(e) => setSelectedRole(e.target.value)}
-    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400"
-  >
-    <option value="congress">Congress (Admin del congreso)</option>
-    <option value="store">Store (Tienda de canjes)</option>
-  </select>
-</div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Rol
+                    </label>
+                    <select
+                      value={selectedRole}
+                      onChange={(e) => setSelectedRole(e.target.value)}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400"
+                    >
+                      <option value="congress">Congress (Admin del congreso)</option>
+                      <option value="store">Store (Tienda de canjes)</option>
+                    </select>
+                  </div>
 
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -496,7 +500,16 @@ export default function CongressDetailPage({
                   >
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-medium text-gray-900 truncate">{user.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium text-gray-900 truncate">{user.name}</h3>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                            user.role === 'congress' 
+                              ? 'bg-indigo-100 text-indigo-700' 
+                              : 'bg-purple-100 text-purple-700'
+                          }`}>
+                            {user.role === 'congress' ? 'Admin' : 'Tienda'}
+                          </span>
+                        </div>
                         <p className="text-gray-600 text-xs truncate">{user.email}</p>
                       </div>
                     </div>
@@ -522,51 +535,49 @@ export default function CongressDetailPage({
         )}
 
         {/* TAB: MAPA */}
-        {/* TAB: MAPA */}
-{activeTab === 'mapa' && (
-  <MapViewer 
-    congressId={id}
-    mapUrl={congress.map_url}
-    canEdit={true}
-    onMapUpdated={loadCongressData}
-  />
-)}
+        {activeTab === 'mapa' && (
+          <MapViewer 
+            congressId={id}
+            mapUrl={congress.map_url}
+            canEdit={true}
+            onMapUpdated={loadCongressData}
+          />
+        )}
+
         {/* TAB: HORARIOS */}
-       {activeTab === 'horarios' && (
-  <ScheduleManager 
-    congressId={id}
-    canEdit={true}
-  />
-)}
+        {activeTab === 'horarios' && (
+          <ScheduleManager 
+            congressId={id}
+            canEdit={true}
+          />
+        )}
 
         {/* TAB: NOTICIAS */}
-     {activeTab === 'noticias' && (
-  <NewsManager 
-    congressId={id}
-    canEdit={true}
-  />
-)}
+        {activeTab === 'noticias' && (
+          <NewsManager 
+            congressId={id}
+            canEdit={true}
+          />
+        )}
 
         {/* TAB: STANDS */}
-      {activeTab === 'stands' && (
-  <StandsManager 
-    congressId={id}
-    canEdit={true}
-  />
-)}
+        {activeTab === 'stands' && (
+          <StandsManager 
+            congressId={id}
+            canEdit={true}
+          />
+        )}
 
-      {/* TAB: ASISTENTES */}
+        {/* TAB: ASISTENTES */}
         {activeTab === 'asistentes' && (
           <AttendeesManager congressId={id} />
         )}
 
         {/* TAB: PREMIOS */}
-{activeTab === 'premios' && (
-  <GiftsManager congressId={id} canEdit={true} />
-)}
-
+        {activeTab === 'premios' && (
+          <GiftsManager congressId={id} canEdit={true} />
+        )}
       </div>
-
 
       {/* Edit Modal */}
       {editingUser && (
@@ -586,6 +597,19 @@ export default function CongressDetailPage({
                     className="w-full border border-gray-200 rounded-lg px-4 py-2 outline-none focus:border-indigo-400"
                     required
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rol
+                  </label>
+                  <select
+                    value={editRole}
+                    onChange={(e) => setEditRole(e.target.value)}
+                    className="w-full border border-gray-200 rounded-lg px-4 py-2 outline-none focus:border-indigo-400"
+                  >
+                    <option value="congress">Congress (Admin del congreso)</option>
+                    <option value="store">Store (Tienda de canjes)</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
