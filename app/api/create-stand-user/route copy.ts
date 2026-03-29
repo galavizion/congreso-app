@@ -3,8 +3,9 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
-    const { email, password, name, standId, congressId } = await request.json()
+    const { email, password, name, congressId } = await request.json()
     
+    // Crear cliente con service role (admin)
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -27,15 +28,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    // Crear perfil con rol 'stand'
+    // Crear perfil
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
       .insert({
         id: authData.user.id,
         email,
         name,
-        role: 'stand',
-        stand_id: standId,
+        role: 'congress',
         congress_id: congressId
       })
 
