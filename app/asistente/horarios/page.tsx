@@ -9,31 +9,90 @@ export default function HorariosPage() {
   const router = useRouter()
   const supabase = createClient()
   const [schedules, setSchedules] = useState<any[]>([])
+  const [savedScheduleIds, setSavedScheduleIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
+  const [attendeeId, setAttendeeId] = useState<string | null>(null)
 
   useEffect(() => {
-    async function load() {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return }
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single()
-
-      if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
-
-      const { data: schedulesData } = await supabase
-        .from('schedules')
-        .select('*')
-        .order('starts_at', { ascending: true })
-
-      setSchedules(schedulesData ?? [])
-      setLoading(false)
-    }
     load()
   }, [])
+
+  async function load() {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) { router.push('/login'); return }
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single()
+
+    if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
+
+    setAttendeeId(profile.id)
+
+    // Cargar horarios
+    const { data: schedulesData } = await supabase
+      .from('schedules')
+      .select('*')
+      .eq('congress_id', profile.congress_id)
+      .order('starts_at', { ascending: true })
+
+    setSchedules(schedulesData ?? [])
+
+    // Cargar eventos ya guardados
+    const { data: savedData } = await supabase
+      .from('attendee_schedule')
+      .select('schedule_id')
+      .eq('attendee_id', profile.id)
+
+    if (savedData) {
+      setSavedScheduleIds(new Set(savedData.map(s => s.schedule_id)))
+    }
+
+    setLoading(false)
+  }
+
+  async function toggleSchedule(scheduleId: string) {
+    if (!attendeeId) return
+
+    const isSaved = savedScheduleIds.has(scheduleId)
+
+    if (isSaved) {
+      // Eliminar
+      const { error } = await supabase
+        .from('attendee_schedule')
+        .delete()
+        .eq('attendee_id', attendeeId)
+        .eq('schedule_id', scheduleId)
+
+      if (error) {
+        alert('Error al eliminar: ' + error.message)
+        return
+      }
+
+      const newSet = new Set(savedScheduleIds)
+      newSet.delete(scheduleId)
+      setSavedScheduleIds(newSet)
+    } else {
+      // Agregar
+      const { error } = await supabase
+        .from('attendee_schedule')
+        .insert({
+          attendee_id: attendeeId,
+          schedule_id: scheduleId
+        })
+
+      if (error) {
+        alert('Error al agregar: ' + error.message)
+        return
+      }
+
+      const newSet = new Set(savedScheduleIds)
+      newSet.add(scheduleId)
+      setSavedScheduleIds(newSet)
+    }
+  }
 
   if (loading) return (
     <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
@@ -78,42 +137,57 @@ export default function HorariosPage() {
           </div>
         ) : (
           <div className="space-y-3">
-            {schedules.map(schedule => (
-              <div
-                key={schedule.id}
-                className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900">{schedule.title}</p>
-                    {schedule.speaker && (
-                      <p className="text-sm text-gray-500 mt-0.5">{schedule.speaker}</p>
-                    )}
-                    {schedule.room && (
-                      <p className="text-xs text-gray-400 mt-1">📍 {schedule.room}</p>
-                    )}
+            {schedules.map(schedule => {
+              const isSaved = savedScheduleIds.has(schedule.id)
+              
+              return (
+                <div
+                  key={schedule.id}
+                  className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1">
+                      <p className="font-semibold text-gray-900">{schedule.title}</p>
+                      {schedule.speaker && (
+                        <p className="text-sm text-gray-500 mt-0.5">{schedule.speaker}</p>
+                      )}
+                      {schedule.room && (
+                        <p className="text-xs text-gray-400 mt-1">📍 {schedule.room}</p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-medium text-gray-700">
+                        {schedule.starts_at
+                          ? new Date(schedule.starts_at).toLocaleTimeString('es-MX', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : ''}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {schedule.ends_at
+                          ? new Date(schedule.ends_at).toLocaleTimeString('es-MX', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-medium text-gray-700">
-                      {schedule.starts_at
-                        ? new Date(schedule.starts_at).toLocaleTimeString('es-MX', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : ''}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {schedule.ends_at
-                        ? new Date(schedule.ends_at).toLocaleTimeString('es-MX', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })
-                        : ''}
-                    </p>
-                  </div>
+
+                  <button
+                    onClick={() => toggleSchedule(schedule.id)}
+                    className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
+                      isSaved
+                        ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                        : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    }`}
+                  >
+                    {isSaved ? '✓ Agregado a Mi Horario' : '+ Agregar a Mi Horario'}
+                  </button>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 

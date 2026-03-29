@@ -34,7 +34,7 @@ export default function AsistenteDashboardPage() {
         .eq('attendee_id', session.user.id)
         .maybeSingle()
 
-      setTotalPoints(pointsData?.total_points ?? 0)
+      setTotalPoints(profileData?.points ?? 0)
 
       const { count: leadsCount } = await supabase
         .from('leads')
@@ -108,7 +108,46 @@ export default function AsistenteDashboardPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
         </Link>
+        <Link
+  href="/asistente/mi-horario"
+  className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
+>
+  <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+    <span className="text-2xl">📋</span>
+  </div>
+  <div className="flex-1">
+    <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Mi Horario</p>
+    <p className="text-sm text-gray-500 mt-0.5">Eventos que agregaste</p>
+  </div>
+  {/* Badge con número de eventos guardados */}
+  <div className="flex items-center gap-2">
+    <span className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 bg-indigo-50 px-2 py-1 rounded-md">
+      3 eventos
+    </span>
+    <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  </div>
+</Link>
 
+<Link
+  href="/asistente/noticias"
+  className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4 relative"
+>
+  {/* Badge de notificación (círculo rojo) */}
+  <div className="absolute top-3 right-3 w-3 h-3 bg-red-500 rounded-full"></div>
+  
+  <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
+    <span className="text-2xl">📰</span>
+  </div>
+  <div className="flex-1">
+    <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Noticias</p>
+    <p className="text-sm text-gray-500 mt-0.5">Novedades del congreso</p>
+  </div>
+  <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+  </svg>
+</Link>
         <Link
           href="/asistente/mapa"
           className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
