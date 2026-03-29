@@ -8,6 +8,8 @@ import ScheduleManager from '@/components/congress/ScheduleManager'
 import NewsManager from '@/components/congress/NewsManager'
 import StandsManager from '@/components/congress/StandsManager' 
 import AttendeesManager from '@/components/congress/AttendeesManager'
+import GiftsManager from '@/components/congress/GiftsManager'
+
 
 type Congress = {
   id: string
@@ -24,7 +26,7 @@ type CongressUser = {
   created_at: string
 }
 
-type Tab = 'general' | 'mapa' | 'horarios' | 'noticias' | 'stands' | 'asistentes'
+type Tab = 'general' | 'mapa' | 'horarios' | 'noticias' | 'stands' | 'asistentes' | 'premios'
 
 export default function CongressDashboard() {
   const supabase = createClient()
@@ -320,7 +322,8 @@ if (!congress || !congressId) {
     { id: 'horarios' as Tab, label: 'Horarios', icon: '📅' },
     { id: 'noticias' as Tab, label: 'Noticias', icon: '📰' },
     { id: 'stands' as Tab, label: 'Stands', icon: '🏪' },
-    { id: 'asistentes' as Tab, label: 'Asistentes', icon: '👥' }
+    { id: 'asistentes' as Tab, label: 'Asistentes', icon: '👥' },
+    { id: 'premios' as Tab, label: 'Premios', icon: '🎁' }
   ]
 console.log('✅ Rendering dashboard:', { congressId, congress, activeTab }) // ← AGREGA ESTO
 
@@ -568,7 +571,12 @@ console.log('✅ Rendering dashboard:', { congressId, congress, activeTab }) // 
         {activeTab === 'asistentes' && (
           <AttendeesManager congressId={congressId} />
         )}
-      </div>
+       
+      {/* TAB: premios */}
+      {activeTab === 'premios' && (
+  <GiftsManager congressId={congressId} canEdit={true} />
+)}
+  </div>
 
       {/* Edit Modal */}
       {editingUser && (

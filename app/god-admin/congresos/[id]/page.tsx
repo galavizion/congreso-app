@@ -8,6 +8,7 @@ import ScheduleManager from '@/components/congress/ScheduleManager'
 import NewsManager from '@/components/congress/NewsManager'
 import StandsManager from '@/components/congress/StandsManager' 
 import AttendeesManager from '@/components/congress/AttendeesManager'
+import GiftsManager from '@/components/congress/GiftsManager' // ← NUEVO
 
 type Congress = {
   id: string
@@ -24,7 +25,7 @@ type CongressUser = {
   created_at: string
 }
 
-type Tab = 'general' | 'mapa' | 'horarios' | 'noticias' | 'stands' | 'asistentes'
+type Tab = 'general' | 'mapa' | 'horarios' | 'noticias' | 'stands' | 'asistentes' | 'premios'
 
 export default function CongressDetailPage({ 
   params 
@@ -287,13 +288,14 @@ export default function CongressDetailPage({
   }
 
   const tabs = [
-    { id: 'general' as Tab, label: 'General', icon: '⚙️' },
-    { id: 'mapa' as Tab, label: 'Mapa', icon: '🗺️' },
-    { id: 'horarios' as Tab, label: 'Horarios', icon: '📅' },
-    { id: 'noticias' as Tab, label: 'Noticias', icon: '📰' },
-    { id: 'stands' as Tab, label: 'Stands', icon: '🏪' },
-    { id: 'asistentes' as Tab, label: 'Asistentes', icon: '👥' }
-  ]
+  { id: 'general' as Tab, label: 'General', icon: '⚙️' },
+  { id: 'mapa' as Tab, label: 'Mapa', icon: '🗺️' },
+  { id: 'horarios' as Tab, label: 'Horarios', icon: '📅' },
+  { id: 'noticias' as Tab, label: 'Noticias', icon: '📰' },
+  { id: 'stands' as Tab, label: 'Stands', icon: '🏪' },
+  { id: 'asistentes' as Tab, label: 'Asistentes', icon: '👥' },
+  { id: 'premios' as Tab, label: 'Premios', icon: '🎁' } // ← NUEVO
+]
 
   return (
     <div className="min-h-screen bg-[#FAFAFA] pb-20">
@@ -535,13 +537,18 @@ export default function CongressDetailPage({
   />
 )}
 
-        {/* TAB: ASISTENTES */}
-   {/* TAB: ASISTENTES */}
       {/* TAB: ASISTENTES */}
         {activeTab === 'asistentes' && (
           <AttendeesManager congressId={id} />
         )}
+
+        {/* TAB: PREMIOS */}
+{activeTab === 'premios' && (
+  <GiftsManager congressId={id} canEdit={true} />
+)}
+
       </div>
+
 
       {/* Edit Modal */}
       {editingUser && (
