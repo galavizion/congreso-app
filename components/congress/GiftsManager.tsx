@@ -14,6 +14,18 @@ type Gift = {
   created_at: string
 }
 
+type Redemption = {
+  id: string
+  attendee_id: string
+  gift_id: string
+  redeemed_at: string
+  status: string
+  points_spent: number
+  attendee_name?: string
+  attendee_email?: string
+  gift_name?: string
+}
+
 export default function GiftsManager({ 
   congressId,
   canEdit = true 
@@ -23,6 +35,7 @@ export default function GiftsManager({
 }) {
   const supabase = createClient()
   const [gifts, setGifts] = useState<Gift[]>([])
+  const [redemptions, setRedemptions] = useState<Redemption[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   
@@ -49,13 +62,25 @@ export default function GiftsManager({
   const [deletingGift, setDeletingGift] = useState<Gift | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  // Redemptions modals
+  const [viewingRedemptionsGift, setViewingRedemptionsGift] = useState<Gift | null>(null)
+  const [viewingAttendeeRedemptions, setViewingAttendeeRedemptions] = useState<{
+    attendee_id: string
+    attendee_name: string
+    attendee_email: string
+  } | null>(null)
+
   useEffect(() => {
-    loadGifts()
+    loadData()
   }, [congressId])
 
-  async function loadGifts() {
+  async function loadData() {
     setLoading(true)
-    
+    await Promise.all([loadGifts(), loadRedemptions()])
+    setLoading(false)
+  }
+
+  async function loadGifts() {
     const { data } = await supabase
       .from('gifts')
       .select('*')
@@ -63,7 +88,42 @@ export default function GiftsManager({
       .order('created_at', { ascending: false })
     
     if (data) setGifts(data)
-    setLoading(false)
+  }
+
+  async function loadRedemptions() {
+    // Fetch redemptions with attendee info
+    const { data: redemptionsData } = await supabase
+      .from('redemptions')
+      .select('*')
+      .in('gift_id', gifts.map(g => g.id))
+
+    if (!redemptionsData) return
+
+    // Fetch all unique attendee IDs
+    const attendeeIds = [...new Set(redemptionsData.map(r => r.attendee_id))]
+    
+    const { data: attendeesData } = await supabase
+      .from('profiles')
+      .select('id, name, email')
+      .in('id', attendeeIds)
+
+    // Fetch all unique gift IDs
+    const giftIds = [...new Set(redemptionsData.map(r => r.gift_id))]
+    
+    const { data: giftsData } = await supabase
+      .from('gifts')
+      .select('id, name')
+      .in('id', giftIds)
+
+    // Merge data
+    const enrichedRedemptions = redemptionsData.map(r => ({
+      ...r,
+      attendee_name: attendeesData?.find(a => a.id === r.attendee_id)?.name || 'Desconocido',
+      attendee_email: attendeesData?.find(a => a.id === r.attendee_id)?.email || '',
+      gift_name: giftsData?.find(g => g.id === r.gift_id)?.name || 'Desconocido'
+    }))
+
+    setRedemptions(enrichedRedemptions)
   }
 
   async function uploadImage(file: File): Promise<string | null> {
@@ -113,14 +173,13 @@ export default function GiftsManager({
 
       if (insertError) throw insertError
 
-      // Reset form
       setName('')
       setDescription('')
       setPointsCost('')
       setStock('')
       setImageFile(null)
       setShowCreateModal(false)
-      loadGifts()
+      loadData()
     } catch (err: any) {
       setError(err.message)
     }
@@ -163,7 +222,6 @@ export default function GiftsManager({
         if (newImageUrl) {
           imageUrl = newImageUrl
           
-          // Delete old image
           if (editingGift.image_url) {
             const oldPath = editingGift.image_url.split('/').pop()
             if (oldPath) {
@@ -189,7 +247,7 @@ export default function GiftsManager({
       if (updateError) throw updateError
 
       closeEditModal()
-      loadGifts()
+      loadData()
     } catch (err: any) {
       setEditError(err.message)
     }
@@ -211,7 +269,6 @@ export default function GiftsManager({
     setDeleting(true)
 
     try {
-      // Delete image if exists
       if (deletingGift.image_url) {
         const imagePath = deletingGift.image_url.split('/').pop()
         if (imagePath) {
@@ -229,12 +286,33 @@ export default function GiftsManager({
       if (deleteError) throw deleteError
 
       closeDeleteConfirm()
-      loadGifts()
+      loadData()
     } catch (err: any) {
       alert(err.message)
     }
     
     setDeleting(false)
+  }
+
+  function getRedemptionCountForGift(giftId: string): number {
+    return redemptions.filter(r => r.gift_id === giftId).length
+  }
+
+  function openRedemptionsModal(gift: Gift) {
+    setViewingRedemptionsGift(gift)
+  }
+
+  function closeRedemptionsModal() {
+    setViewingRedemptionsGift(null)
+  }
+
+  function openAttendeeRedemptionsModal(attendeeId: string, attendeeName: string, attendeeEmail: string) {
+    setViewingAttendeeRedemptions({ attendee_id: attendeeId, attendee_name: attendeeName, attendee_email: attendeeEmail })
+    closeRedemptionsModal()
+  }
+
+  function closeAttendeeRedemptionsModal() {
+    setViewingAttendeeRedemptions(null)
   }
 
   if (loading) {
@@ -251,6 +329,8 @@ export default function GiftsManager({
   const avgPoints = gifts.length > 0 
     ? Math.round(gifts.reduce((acc, g) => acc + g.points_cost, 0) / gifts.length) 
     : 0
+
+  const totalRedeemed = redemptions.length
 
   return (
     <div className="space-y-6">
@@ -280,12 +360,12 @@ export default function GiftsManager({
 
         <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
-              <span className="text-2xl">⭐</span>
+            <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+              <span className="text-2xl">✨</span>
             </div>
-            <p className="text-sm font-medium text-gray-600">Puntos Promedio</p>
+            <p className="text-sm font-medium text-gray-600">Total Canjeados</p>
           </div>
-          <p className="text-3xl font-bold text-gray-900">{avgPoints}</p>
+          <p className="text-3xl font-bold text-gray-900">{totalRedeemed}</p>
         </div>
       </div>
 
@@ -320,66 +400,86 @@ export default function GiftsManager({
         </div>
       ) : (
         <div className="space-y-3">
-          {gifts.map(gift => (
-            <div
-              key={gift.id}
-              className="group block bg-white rounded-xl p-5 border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all duration-200"
-            >
-              <div className="flex items-center gap-4">
-                {gift.image_url ? (
-                  <img 
-                    src={gift.image_url} 
-                    alt={gift.name}
-                    className="w-14 h-14 rounded-lg object-cover border border-gray-100"
-                  />
-                ) : (
-                  <div className="w-14 h-14 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100">
-                    <span className="text-2xl">🎁</span>
-                  </div>
-                )}
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">
-                    {gift.name}
-                  </h3>
-                  {gift.description && (
-                    <p className="text-sm text-gray-500 truncate mt-0.5">{gift.description}</p>
+          {gifts.map(gift => {
+            const redemptionCount = getRedemptionCountForGift(gift.id)
+            
+            return (
+              <div
+                key={gift.id}
+                className="group block bg-white rounded-xl p-5 border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all duration-200"
+              >
+                <div className="flex items-center gap-4">
+                  {gift.image_url ? (
+                    <img 
+                      src={gift.image_url} 
+                      alt={gift.name}
+                      className="w-14 h-14 rounded-lg object-cover border border-gray-100"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-lg bg-gray-50 flex items-center justify-center border border-gray-100">
+                      <span className="text-2xl">🎁</span>
+                    </div>
                   )}
-                  <div className="flex items-center gap-4 mt-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
-                      <span>⭐</span>
-                      {gift.points_cost} pts
-                    </span>
-                    <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md ${
-                      gift.stock > 0 
-                        ? 'text-green-700 bg-green-50' 
-                        : 'text-red-700 bg-red-50'
-                    }`}>
-                      <span>{gift.stock > 0 ? '✓' : '✗'}</span>
-                      {gift.stock} en stock
-                    </span>
+
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate">
+                      {gift.name}
+                    </h3>
+                    {gift.description && (
+                      <p className="text-sm text-gray-500 truncate mt-0.5">{gift.description}</p>
+                    )}
+                    <div className="flex items-center gap-4 mt-2">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600 bg-amber-50 px-2 py-1 rounded-md">
+                        <span>⭐</span>
+                        {gift.points_cost} pts
+                      </span>
+                      <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-md ${
+                        gift.stock > 0 
+                          ? 'text-green-700 bg-green-50' 
+                          : 'text-red-700 bg-red-50'
+                      }`}>
+                        <span>{gift.stock > 0 ? '✓' : '✗'}</span>
+                        {gift.stock} en stock
+                      </span>
+                      {redemptionCount > 0 && (
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-1 rounded-md">
+                          <span>✨</span>
+                          {redemptionCount} canjeados
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    {redemptionCount > 0 && (
+                      <button
+                        onClick={() => openRedemptionsModal(gift)}
+                        className="text-purple-600 hover:text-purple-700 text-xs font-medium px-3 py-2 border border-purple-200 rounded-lg hover:bg-purple-50"
+                      >
+                        Ver canjes
+                      </button>
+                    )}
+                    {canEdit && (
+                      <>
+                        <button
+                          onClick={() => openEditModal(gift)}
+                          className="text-indigo-600 hover:text-indigo-700 text-xs font-medium px-3 py-2 border border-indigo-200 rounded-lg hover:bg-indigo-50"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          onClick={() => openDeleteConfirm(gift)}
+                          className="text-red-600 hover:text-red-700 text-xs font-medium px-3 py-2 border border-red-200 rounded-lg hover:bg-red-50"
+                        >
+                          Eliminar
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
-
-                {canEdit && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openEditModal(gift)}
-                      className="text-indigo-600 hover:text-indigo-700 text-xs font-medium px-3 py-2 border border-indigo-200 rounded-lg hover:bg-indigo-50"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={() => openDeleteConfirm(gift)}
-                      className="text-red-600 hover:text-red-700 text-xs font-medium px-3 py-2 border border-red-200 rounded-lg hover:bg-red-50"
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -604,6 +704,132 @@ export default function GiftsManager({
                   Cancelar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Redemptions Modal - Lista de canjes por regalo */}
+      {viewingRedemptionsGift && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Canjes de {viewingRedemptionsGift.name}</h3>
+              <p className="text-sm text-gray-500 mb-4">
+                {redemptions.filter(r => r.gift_id === viewingRedemptionsGift.id).length} personas canjearon este premio
+              </p>
+              
+              <div className="space-y-3">
+                {redemptions
+                  .filter(r => r.gift_id === viewingRedemptionsGift.id)
+                  .map(redemption => (
+                    <div
+                      key={redemption.id}
+                      className="bg-gray-50 rounded-lg p-4 hover:bg-gray-100 transition-colors cursor-pointer"
+                      onClick={() => openAttendeeRedemptionsModal(
+                        redemption.attendee_id, 
+                        redemption.attendee_name || 'Desconocido',
+                        redemption.attendee_email || ''
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{redemption.attendee_name}</p>
+                          <p className="text-xs text-gray-500">{redemption.attendee_email}</p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs text-gray-600">
+                              {new Date(redemption.redeemed_at).toLocaleDateString('es-MX', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                            <span className={`text-xs font-medium px-2 py-1 rounded ${
+                              redemption.status === 'completed' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {redemption.status === 'completed' ? 'Entregado' : 'Pendiente'}
+                            </span>
+                          </div>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              <button
+                onClick={closeRedemptionsModal}
+                className="w-full mt-6 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attendee Redemptions Modal - Historial completo de un asistente */}
+      {viewingAttendeeRedemptions && (
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">{viewingAttendeeRedemptions.attendee_name}</h3>
+              <p className="text-sm text-gray-500 mb-4">{viewingAttendeeRedemptions.attendee_email}</p>
+              
+              <h4 className="font-semibold text-gray-900 mb-3">Historial de canjes</h4>
+              
+              <div className="space-y-3">
+                {redemptions
+                  .filter(r => r.attendee_id === viewingAttendeeRedemptions.attendee_id)
+                  .map(redemption => (
+                    <div
+                      key={redemption.id}
+                      className="bg-gray-50 rounded-lg p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
+                          <span className="text-2xl">🎁</span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{redemption.gift_name}</p>
+                          <div className="flex items-center gap-3 mt-2">
+                            <span className="text-xs text-gray-600">
+                              {new Date(redemption.redeemed_at).toLocaleDateString('es-MX', { 
+                                day: '2-digit', 
+                                month: 'short', 
+                                year: 'numeric',
+                                hour: '2-digit', 
+                                minute: '2-digit' 
+                              })}
+                            </span>
+                            <span className="text-xs font-semibold text-amber-600">
+                              {redemption.points_spent} pts
+                            </span>
+                            <span className={`text-xs font-medium px-2 py-1 rounded ${
+                              redemption.status === 'completed' 
+                                ? 'bg-green-100 text-green-700' 
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {redemption.status === 'completed' ? 'Entregado' : 'Pendiente'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              <button
+                onClick={closeAttendeeRedemptionsModal}
+                className="w-full mt-6 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+              >
+                Cerrar
+              </button>
             </div>
           </div>
         </div>
