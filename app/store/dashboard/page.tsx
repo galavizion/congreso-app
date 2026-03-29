@@ -161,13 +161,13 @@ async function loadCompletedToday() {
 async function handleMarkAsDelivered(redemptionId: string) {
   setMarking(redemptionId)
 
-  const { error } = await supabase
-    .from('redemptions')
-    .update({ 
-      status: 'completed',
-      delivered_at: new Date().toISOString()  // ← AGREGAR ESTO
-    })
-    .eq('id', redemptionId)
+ const { error } = await supabase
+  .from('redemptions')
+  .update({ 
+    status: 'completed',
+    delivered_at: new Date().toISOString()  // ← DEBE ESTAR AQUÍ
+  })
+  .eq('id', redemptionId)
 
   if (error) {
     alert('Error al marcar como entregado: ' + error.message)
