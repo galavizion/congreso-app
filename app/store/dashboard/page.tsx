@@ -122,7 +122,7 @@ async function loadCompletedToday() {
   async function loadAttendeeRedemptions(attendee: Attendee) {
   setSelectedAttendee(attendee)
 
-  // Load pending redemptions
+  // Load ALL redemptions (pending AND completed)
   const { data: redemptions } = await supabase
     .from('redemptions')
     .select(`
@@ -135,7 +135,6 @@ async function loadCompletedToday() {
       points_spent
     `)
     .eq('attendee_id', attendee.id)
-    .eq('status', 'pending')
     .order('redeemed_at', { ascending: false })
 
   if (!redemptions || redemptions.length === 0) {
@@ -258,64 +257,108 @@ async function handleMarkAsDelivered(redemptionId: string) {
               </div>
             </div>
 
-            {/* Pending Redemptions */}
-            <div className="border-t pt-4">
-              <h4 className="font-semibold text-gray-900 mb-3">
-                Premios Pendientes ({pendingRedemptions.length})
-              </h4>
+          {/* Pending Redemptions */}
+<div className="border-t pt-4">
+  <h4 className="font-semibold text-gray-900 mb-3">
+    Premios Pendientes ({pendingRedemptions.filter(r => r.status === 'pending').length})
+  </h4>
 
-              {pendingRedemptions.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">
-                  No hay premios pendientes de entrega
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {pendingRedemptions.map((redemption) => (
-                    <div
-                      key={redemption.id}
-                      className="bg-gray-50 rounded-lg p-4 flex items-center gap-4"
-                    >
-                      {redemption.gift_image ? (
-                        <img 
-                          src={redemption.gift_image} 
-                          alt={redemption.gift_name}
-                          className="w-16 h-16 rounded-lg object-cover border border-gray-100"
-                        />
-                      ) : (
-                        <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <span className="text-3xl">🎁</span>
-                        </div>
-                      )}
-
-                      <div className="flex-1 min-w-0">
-                        <h5 className="font-semibold text-gray-900">{redemption.gift_name}</h5>
-                        <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs text-gray-600">
-                            {new Date(redemption.redeemed_at).toLocaleDateString('es-MX', {
-                              day: '2-digit',
-                              month: 'short',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </span>
-                          <span className="text-xs font-semibold text-amber-600">
-                            {redemption.points_spent} pts
-                          </span>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={() => handleMarkAsDelivered(redemption.id)}
-                        disabled={marking === redemption.id}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
-                      >
-                        {marking === redemption.id ? 'Marcando...' : 'Entregar'}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+  {pendingRedemptions.filter(r => r.status === 'pending').length === 0 ? (
+    <div className="text-center py-4 text-gray-400 text-sm">
+      No hay premios pendientes de entrega
+    </div>
+  ) : (
+    <div className="space-y-3">
+      {pendingRedemptions.filter(r => r.status === 'pending').map((redemption) => (
+        <div
+          key={redemption.id}
+          className="bg-gray-50 rounded-lg p-4 flex items-center gap-4"
+        >
+          {redemption.gift_image ? (
+            <img 
+              src={redemption.gift_image} 
+              alt={redemption.gift_name}
+              className="w-16 h-16 rounded-lg object-cover border border-gray-100"
+            />
+          ) : (
+            <div className="w-16 h-16 rounded-lg bg-gray-100 flex items-center justify-center">
+              <span className="text-3xl">🎁</span>
             </div>
+          )}
+
+          <div className="flex-1 min-w-0">
+            <h5 className="font-semibold text-gray-900">{redemption.gift_name}</h5>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-xs text-gray-600">
+                {new Date(redemption.redeemed_at).toLocaleDateString('es-MX', {
+                  day: '2-digit',
+                  month: 'short',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </span>
+              <span className="text-xs font-semibold text-amber-600">
+                {redemption.points_spent} pts
+              </span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleMarkAsDelivered(redemption.id)}
+            disabled={marking === redemption.id}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium disabled:opacity-50"
+          >
+            {marking === redemption.id ? 'Marcando...' : 'Entregar'}
+          </button>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+{/* Completed Redemptions */}
+<div className="border-t pt-4 mt-6">
+  <h4 className="font-semibold text-gray-900 mb-3">
+    Ya Entregados ({pendingRedemptions.filter(r => r.status === 'completed').length})
+  </h4>
+
+  {pendingRedemptions.filter(r => r.status === 'completed').length === 0 ? (
+    <div className="text-center py-4 text-gray-400 text-sm">
+      No hay premios entregados aún
+    </div>
+  ) : (
+    <div className="space-y-2">
+      {pendingRedemptions.filter(r => r.status === 'completed').map((redemption) => (
+        <div
+          key={redemption.id}
+          className="bg-green-50 rounded-lg p-3 flex items-center gap-3 border border-green-100"
+        >
+          <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+            <span className="text-xl">✓</span>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900">{redemption.gift_name}</p>
+            <p className="text-xs text-gray-500">
+              Entregado: {redemption.delivered_at 
+                ? new Date(redemption.delivered_at).toLocaleDateString('es-MX', {
+                    day: '2-digit',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  })
+                : 'Sin fecha'}
+            </p>
+          </div>
+
+          <span className="text-xs font-semibold text-amber-600">
+            {redemption.points_spent} pts
+          </span>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
           </div>
         )}
 
