@@ -10,6 +10,8 @@ type News = {
   image_url: string | null
   published_at: string
   stand_id: string | null
+  author_name?: string
+  author_logo?: string | null
 }
 
 type NewsManagerProps = {
@@ -60,8 +62,45 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
     
     const { data } = await query.order('published_at', { ascending: false })
     
-    if (data) setNews(data)
+    if (!data) {
+      setLoading(false)
+      return
+    }
+
+    // Cargar info del congreso
+    const { data: congressData } = await supabase
+      .from('congresses')
+      .select('name, logo_url')
+      .eq('id', congressId)
+      .single()
+
+    // Cargar info de stands para noticias con stand_id
+    const standIds = [...new Set(data.filter(n => n.stand_id).map(n => n.stand_id))]
+    let standsMap: Record<string, any> = {}
     
+    if (standIds.length > 0) {
+      const { data: standsData } = await supabase
+        .from('stands')
+        .select('id, name, logo_url')
+        .in('id', standIds)
+      
+      if (standsData) {
+        standsMap = Object.fromEntries(standsData.map(s => [s.id, s]))
+      }
+    }
+
+    // Enriquecer noticias con datos del autor
+    const enrichedNews = data.map(newsItem => ({
+      ...newsItem,
+      author_name: newsItem.stand_id 
+        ? standsMap[newsItem.stand_id]?.name || 'Stand' 
+        : congressData?.name || 'Congreso',
+      author_logo: newsItem.stand_id
+        ? standsMap[newsItem.stand_id]?.logo_url
+        : congressData?.logo_url
+    }))
+    
+    setNews(enrichedNews)
     setLoading(false)
   }
 
@@ -242,6 +281,26 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
 
           {/* Contenido */}
           <div className="p-4">
+            {/* Autor */}
+            <div className="flex items-center gap-2 mb-3">
+              {viewingNews.author_logo ? (
+                <img 
+                  src={viewingNews.author_logo} 
+                  alt={viewingNews.author_name}
+                  className="w-8 h-8 rounded-full object-cover border border-gray-200"
+                />
+              ) : (
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                  <span className="text-sm font-bold text-indigo-600">
+                    {viewingNews.author_name?.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+              )}
+              <span className="text-sm font-medium text-gray-700">
+                {viewingNews.author_name}
+              </span>
+            </div>
+
             <h1 className="text-xl font-bold text-gray-900 mb-2">
               {viewingNews.title}
             </h1>
@@ -432,6 +491,26 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
                   onClick={() => !canEdit && setViewingNews(newsItem)}
                   className={!canEdit ? 'cursor-pointer' : ''}
                 >
+                  {/* Autor */}
+                  <div className="flex items-center gap-2 mb-2">
+                    {newsItem.author_logo ? (
+                      <img 
+                        src={newsItem.author_logo} 
+                        alt={newsItem.author_name}
+                        className="w-6 h-6 rounded-full object-cover border border-gray-200"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-100 to-purple-100 flex items-center justify-center">
+                        <span className="text-xs font-bold text-indigo-600">
+                          {newsItem.author_name?.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                    )}
+                    <span className="text-xs font-medium text-gray-600">
+                      {newsItem.author_name}
+                    </span>
+                  </div>
+
                   <h3 className="font-bold text-gray-900 mb-1">{newsItem.title}</h3>
                   <p className="text-gray-600 text-xs mb-2">
                     {new Date(newsItem.published_at).toLocaleDateString('es-MX', {
