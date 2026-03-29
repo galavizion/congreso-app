@@ -64,7 +64,8 @@ async function loadCompletedToday() {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const { data: redemptions } = await supabase
+   console.log('🔍 Buscando entregas desde:', today.toISOString())
+ const { data: redemptions, error } = await supabase
     .from('redemptions')
     .select(`
       id,
@@ -76,8 +77,11 @@ async function loadCompletedToday() {
       points_spent
     `)
     .eq('status', 'completed')
-    .gte('delivered_at', today.toISOString())  // ← CAMBIAR de redeemed_at a delivered_at
-    .order('delivered_at', { ascending: false })  // ← CAMBIAR orden también
+    .gte('delivered_at', today.toISOString())
+    .order('delivered_at', { ascending: false })
+
+  console.log('✨ Redemptions encontrados:', redemptions)
+  console.log('❌ Error:', error)
 
   if (!redemptions) return
 
