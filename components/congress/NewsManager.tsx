@@ -9,14 +9,16 @@ type News = {
   content: string
   image_url: string | null
   published_at: string
+  stand_id: string | null
 }
 
 type NewsManagerProps = {
   congressId: string
+  standId?: string | null
   canEdit?: boolean
 }
 
-export default function NewsManager({ congressId, canEdit = false }: NewsManagerProps) {
+export default function NewsManager({ congressId, standId, canEdit = false }: NewsManagerProps) {
   const supabase = createClient()
   const [news, setNews] = useState<News[]>([])
   const [loading, setLoading] = useState(true)
@@ -41,16 +43,22 @@ export default function NewsManager({ congressId, canEdit = false }: NewsManager
 
   useEffect(() => {
     loadNews()
-  }, [congressId])
+  }, [congressId, standId])
 
   async function loadNews() {
     setLoading(true)
     
-    const { data } = await supabase
+    let query = supabase
       .from('news')
       .select('*')
       .eq('congress_id', congressId)
-      .order('published_at', { ascending: false })
+    
+    // Si hay standId, filtrar solo noticias de ese stand
+    if (standId) {
+      query = query.eq('stand_id', standId)
+    }
+    
+    const { data } = await query.order('published_at', { ascending: false })
     
     if (data) setNews(data)
     
@@ -126,6 +134,7 @@ export default function NewsManager({ congressId, canEdit = false }: NewsManager
           .from('news')
           .insert([{
             congress_id: congressId,
+            stand_id: standId || null,
             title,
             content,
             image_url: imageUrl
@@ -392,7 +401,9 @@ export default function NewsManager({ congressId, canEdit = false }: NewsManager
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center">
           <div className="text-4xl mb-3">📰</div>
           <div className="text-gray-400 text-base mb-1">Sin noticias</div>
-          <p className="text-gray-500 text-xs">Publica la primera noticia</p>
+          <p className="text-gray-500 text-xs">
+            {standId ? 'Publica la primera noticia de tu stand' : 'Publica la primera noticia'}
+          </p>
         </div>
       ) : (
         <div className="space-y-3">
