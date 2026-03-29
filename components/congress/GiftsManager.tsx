@@ -89,42 +89,49 @@ export default function GiftsManager({
     
     if (data) setGifts(data)
   }
+async function loadRedemptions() {
+  // Primero cargar todos los gifts del congreso
+  const { data: giftsData } = await supabase
+    .from('gifts')
+    .select('id, name')
+    .eq('congress_id', congressId)
 
-  async function loadRedemptions() {
-    // Fetch redemptions with attendee info
-    const { data: redemptionsData } = await supabase
-      .from('redemptions')
-      .select('*')
-      .in('gift_id', gifts.map(g => g.id))
-
-    if (!redemptionsData) return
-
-    // Fetch all unique attendee IDs
-    const attendeeIds = [...new Set(redemptionsData.map(r => r.attendee_id))]
-    
-    const { data: attendeesData } = await supabase
-      .from('profiles')
-      .select('id, name, email')
-      .in('id', attendeeIds)
-
-    // Fetch all unique gift IDs
-    const giftIds = [...new Set(redemptionsData.map(r => r.gift_id))]
-    
-    const { data: giftsData } = await supabase
-      .from('gifts')
-      .select('id, name')
-      .in('id', giftIds)
-
-    // Merge data
-    const enrichedRedemptions = redemptionsData.map(r => ({
-      ...r,
-      attendee_name: attendeesData?.find(a => a.id === r.attendee_id)?.name || 'Desconocido',
-      attendee_email: attendeesData?.find(a => a.id === r.attendee_id)?.email || '',
-      gift_name: giftsData?.find(g => g.id === r.gift_id)?.name || 'Desconocido'
-    }))
-
-    setRedemptions(enrichedRedemptions)
+  if (!giftsData || giftsData.length === 0) {
+    setRedemptions([])
+    return
   }
+
+  const giftIds = giftsData.map(g => g.id)
+
+  // Fetch redemptions de esos gifts
+  const { data: redemptionsData } = await supabase
+    .from('redemptions')
+    .select('*')
+    .in('gift_id', giftIds)
+
+  if (!redemptionsData || redemptionsData.length === 0) {
+    setRedemptions([])
+    return
+  }
+
+  // Fetch attendees
+  const attendeeIds = [...new Set(redemptionsData.map(r => r.attendee_id))]
+  
+  const { data: attendeesData } = await supabase
+    .from('profiles')
+    .select('id, name, email')
+    .in('id', attendeeIds)
+
+  // Merge data
+  const enrichedRedemptions = redemptionsData.map(r => ({
+    ...r,
+    attendee_name: attendeesData?.find(a => a.id === r.attendee_id)?.name || 'Desconocido',
+    attendee_email: attendeesData?.find(a => a.id === r.attendee_id)?.email || '',
+    gift_name: giftsData?.find(g => g.id === r.gift_id)?.name || 'Desconocido'
+  }))
+
+  setRedemptions(enrichedRedemptions)
+}
 
   async function uploadImage(file: File): Promise<string | null> {
     try {
