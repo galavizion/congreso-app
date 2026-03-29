@@ -45,16 +45,24 @@ export default function HorariosPage() {
     setAttendeeId(profile.id)
 
     // Cargar eventos
-    const { data: eventsData } = await supabase
-      .from('congress_events')
-      .select('*')
-      .eq('congress_id', profile.congress_id)
-      .order('starts_at', { ascending: true })
+  const { data: eventsData, error } = await supabase
+  .from('congress_events')
+  .select('*')
+  .eq('congress_id', profile.congress_id)
+  .order('starts_at', { ascending: true })
 
-    if (!eventsData) {
-      setLoading(false)
-      return
-    }
+console.log('🔍 Events query:', { eventsData, error, congress_id: profile.congress_id })
+
+if (error) {
+  console.error('❌ Error loading events:', error)
+  setLoading(false)
+  return
+}
+
+if (!eventsData) {
+  setLoading(false)
+  return
+}
 
     // Cargar nombres de salas
     const roomIds = [...new Set(eventsData.filter(e => e.room_id).map(e => e.room_id))]
