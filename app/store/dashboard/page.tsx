@@ -9,6 +9,7 @@ type Redemption = {
   gift_id: string
   attendee_id: string
   redeemed_at: string
+  delivered_at: string | null  // ← AGREGAR ESTO
   status: string
   points_spent: number
   gift_name: string
@@ -59,42 +60,42 @@ export default function StoreDashboard() {
     setLoading(false)
     loadCompletedToday()
   }
+async function loadCompletedToday() {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
-  async function loadCompletedToday() {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
+  const { data: redemptions } = await supabase
+    .from('redemptions')
+    .select(`
+      id,
+      gift_id,
+      attendee_id,
+      redeemed_at,
+      delivered_at,
+      status,
+      points_spent
+    `)
+    .eq('status', 'completed')
+    .gte('delivered_at', today.toISOString())  // ← CAMBIAR de redeemed_at a delivered_at
+    .order('delivered_at', { ascending: false })  // ← CAMBIAR orden también
 
-    const { data: redemptions } = await supabase
-      .from('redemptions')
-      .select(`
-        id,
-        gift_id,
-        attendee_id,
-        redeemed_at,
-        status,
-        points_spent
-      `)
-      .eq('status', 'completed')
-      .gte('redeemed_at', today.toISOString())
-      .order('redeemed_at', { ascending: false })
+  if (!redemptions) return
 
-    if (!redemptions) return
+  // Get gift names
+  const giftIds = [...new Set(redemptions.map(r => r.gift_id))]
+  const { data: gifts } = await supabase
+    .from('gifts')
+    .select('id, name, image_url')
+    .in('id', giftIds)
 
-    // Get gift names
-    const giftIds = [...new Set(redemptions.map(r => r.gift_id))]
-    const { data: gifts } = await supabase
-      .from('gifts')
-      .select('id, name, image_url')
-      .in('id', giftIds)
+  const enriched = redemptions.map(r => ({
+    ...r,
+    gift_name: gifts?.find(g => g.id === r.gift_id)?.name || 'Desconocido',
+    gift_image: gifts?.find(g => g.id === r.gift_id)?.image_url || null
+  }))
 
-    const enriched = redemptions.map(r => ({
-      ...r,
-      gift_name: gifts?.find(g => g.id === r.gift_id)?.name || 'Desconocido',
-      gift_image: gifts?.find(g => g.id === r.gift_id)?.image_url || null
-    }))
-
-    setCompletedToday(enriched)
-  }
+  setCompletedToday(enriched)
+}
 
   async function handleSearch() {
     if (!searchQuery.trim()) return
@@ -115,66 +116,68 @@ export default function StoreDashboard() {
   }
 
   async function loadAttendeeRedemptions(attendee: Attendee) {
-    setSelectedAttendee(attendee)
+  setSelectedAttendee(attendee)
 
-    // Load pending redemptions
-    const { data: redemptions } = await supabase
-      .from('redemptions')
-      .select(`
-        id,
-        gift_id,
-        attendee_id,
-        redeemed_at,
-        status,
-        points_spent
-      `)
-      .eq('attendee_id', attendee.id)
-      .eq('status', 'pending')
-      .order('redeemed_at', { ascending: false })
+  // Load pending redemptions
+  const { data: redemptions } = await supabase
+    .from('redemptions')
+    .select(`
+      id,
+      gift_id,
+      attendee_id,
+      redeemed_at,
+      delivered_at,
+      status,
+      points_spent
+    `)
+    .eq('attendee_id', attendee.id)
+    .eq('status', 'pending')
+    .order('redeemed_at', { ascending: false })
 
-    if (!redemptions || redemptions.length === 0) {
-      setPendingRedemptions([])
-      return
-    }
-
-    // Get gift details
-    const giftIds = [...new Set(redemptions.map(r => r.gift_id))]
-    const { data: gifts } = await supabase
-      .from('gifts')
-      .select('id, name, image_url')
-      .in('id', giftIds)
-
-    const enriched = redemptions.map(r => ({
-      ...r,
-      gift_name: gifts?.find(g => g.id === r.gift_id)?.name || 'Desconocido',
-      gift_image: gifts?.find(g => g.id === r.gift_id)?.image_url || null
-    }))
-
-    setPendingRedemptions(enriched)
+  if (!redemptions || redemptions.length === 0) {
+    setPendingRedemptions([])
+    return
   }
 
-  async function handleMarkAsDelivered(redemptionId: string) {
-    setMarking(redemptionId)
+  // Get gift details
+  const giftIds = [...new Set(redemptions.map(r => r.gift_id))]
+  const { data: gifts } = await supabase
+    .from('gifts')
+    .select('id, name, image_url')
+    .in('id', giftIds)
 
-    const { error } = await supabase
-      .from('redemptions')
-      .update({ status: 'completed' })
-      .eq('id', redemptionId)
+  const enriched = redemptions.map(r => ({
+    ...r,
+    gift_name: gifts?.find(g => g.id === r.gift_id)?.name || 'Desconocido',
+    gift_image: gifts?.find(g => g.id === r.gift_id)?.image_url || null
+  }))
 
-    if (error) {
-      alert('Error al marcar como entregado: ' + error.message)
-      setMarking(null)
-      return
-    }
+  setPendingRedemptions(enriched)
+}
+async function handleMarkAsDelivered(redemptionId: string) {
+  setMarking(redemptionId)
 
-    // Reload data
-    if (selectedAttendee) {
-      loadAttendeeRedemptions(selectedAttendee)
-    }
-    loadCompletedToday()
+  const { error } = await supabase
+    .from('redemptions')
+    .update({ 
+      status: 'completed',
+      delivered_at: new Date().toISOString()  // ← AGREGAR ESTO
+    })
+    .eq('id', redemptionId)
+
+  if (error) {
+    alert('Error al marcar como entregado: ' + error.message)
     setMarking(null)
+    return
   }
 
+  // Reload data
+  if (selectedAttendee) {
+    loadAttendeeRedemptions(selectedAttendee)
+  }
+  loadCompletedToday()
+  setMarking(null)
+}
   async function handleLogout() {
     await supabase.auth.signOut()
     window.location.href = '/login'
@@ -336,12 +339,12 @@ export default function StoreDashboard() {
                     <p className="text-sm font-medium text-gray-900 truncate">
                       {redemption.gift_name}
                     </p>
-                    <p className="text-xs text-gray-500">
-                      {new Date(redemption.redeemed_at).toLocaleTimeString('es-MX', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
+                <p className="text-xs text-gray-500">
+  {new Date(redemption.delivered_at || redemption.redeemed_at).toLocaleTimeString('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })}
+</p>
                   </div>
                 </div>
               ))}
