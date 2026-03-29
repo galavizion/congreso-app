@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
   try {
-    const { email, password, name, congressId } = await request.json()
+    const { email, password, name, role, congressId } = await request.json()
     
     // Crear cliente con service role (admin)
     const supabaseAdmin = createClient(
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
         id: authData.user.id,
         email,
         name,
-        role: 'congress',
+        role: role || 'congress',  // ← USA EL ROLE DEL BODY (fallback a congress)
         congress_id: congressId
       })
 

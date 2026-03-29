@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 
 export async function PATCH(request: Request) {
   try {
-    const { userId, name, password } = await request.json()
+    const { userId, name, role, password } = await request.json()
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -16,10 +16,13 @@ export async function PATCH(request: Request) {
       }
     )
 
-    // Actualizar nombre en profiles
+    // Actualizar nombre y rol en profiles
     const { error: profileError } = await supabaseAdmin
       .from('profiles')
-      .update({ name })
+      .update({ 
+        name,
+        role  // ← AGREGAR ROLE
+      })
       .eq('id', userId)
 
     if (profileError) {
