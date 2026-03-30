@@ -38,13 +38,21 @@ export default function AsistenteDashboardPage() {
 
       setLeadsCount(leadsCount ?? 0)
 
-      // Count de noticias del congreso
-      const { count: newsCount } = await supabase
-        .from('news')
-        .select('id', { count: 'exact', head: true })
-        .eq('congress_id', profileData.congress_id)
+     // Contar noticias NO vistas
+const { data: allNews } = await supabase
+  .from('news')
+  .select('id')
+  .eq('congress_id', profileData.congress_id)
 
-      setNewsCount(newsCount ?? 0)
+const { data: viewedNews } = await supabase
+  .from('news_views')
+  .select('news_id')
+  .eq('attendee_id', session.user.id)
+
+const viewedIds = new Set(viewedNews?.map(v => v.news_id) || [])
+const unviewedCount = allNews?.filter(n => !viewedIds.has(n.id)).length || 0
+
+setNewsCount(unviewedCount)
 
       setLoading(false)
     }

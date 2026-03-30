@@ -53,7 +53,16 @@ export default function NoticiasPage() {
       setLoading(false)
       return
     }
-
+// Después de cargar noticias, marcar todas como vistas
+if (newsData && newsData.length > 0) {
+  const newsIds = newsData.map(n => n.id)
+  await supabase
+    .from('news_views')
+    .upsert(
+      newsIds.map(id => ({ attendee_id: profile.id, news_id: id })),
+      { onConflict: 'attendee_id,news_id', ignoreDuplicates: true }
+    )
+}
     // Cargar datos del congreso
     const { data: congressData } = await supabase
       .from('congresses')
