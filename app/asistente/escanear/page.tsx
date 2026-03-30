@@ -1,5 +1,7 @@
 'use client'
 
+'use client'
+
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -111,13 +113,20 @@ export default function EscanearPage() {
 
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
     
+    console.log('🔍 Escaneando frame...', {
+      width: imageData.width,
+      height: imageData.height,
+      dataLength: imageData.data.length
+    })
+    
     // Escanear QR con jsQR
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: 'dontInvert'
+      inversionAttempts: 'attemptBoth'
     })
     
     if (code && code.data) {
-      console.log('📱 QR detectado:', code.data)
+      console.log('✅ QR detectado:', code.data)
+      console.log('📍 Posición:', code.location)
       await processQR(code.data)
       return
     }
