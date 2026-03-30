@@ -22,6 +22,7 @@ export default function NoticiasPage() {
   const router = useRouter()
   const supabase = createClient()
   const [news, setNews] = useState<News[]>([])
+  const [selectedNews, setSelectedNews] = useState<News | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -94,6 +95,78 @@ export default function NoticiasPage() {
     </div>
   )
 
+  // Vista de detalle
+  if (selectedNews) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA]">
+        <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+          <div className="px-6 py-6">
+            <div className="flex items-center gap-4 max-w-5xl mx-auto">
+              <button
+                onClick={() => setSelectedNews(null)}
+                className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <div>
+                <h1 className="text-xl font-bold text-white">Noticia</h1>
+                <p className="text-sm text-white/80 mt-0.5">{selectedNews.author_name}</p>
+              </div>
+            </div>
+          </div>
+          <div className="h-1 bg-blue-400"></div>
+        </div>
+
+        <div className="px-6 py-8 max-w-5xl mx-auto">
+          <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+            {/* Imagen */}
+            {selectedNews.image_url && (
+              <div className="relative w-full h-64 bg-gray-100">
+                <img
+                  src={selectedNews.image_url}
+                  alt={selectedNews.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+
+            <div className="p-6">
+              {/* Autor y fecha */}
+              <div className="flex items-center gap-2 mb-4">
+                {selectedNews.author_logo && (
+                  <div className="relative w-8 h-8 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+                    <img
+                      src={selectedNews.author_logo}
+                      alt={selectedNews.author_name || 'Logo'}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">{selectedNews.author_name}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(selectedNews.published_at).toLocaleDateString('es-MX', {
+                      day: 'numeric',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contenido */}
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">{selectedNews.title}</h2>
+              <p className="text-base text-gray-700 whitespace-pre-wrap leading-relaxed">{selectedNews.content}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Vista de lista
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
       <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
@@ -117,7 +190,6 @@ export default function NoticiasPage() {
       </div>
 
       <div className="px-6 py-8 max-w-5xl mx-auto">
-
         {news.length === 0 ? (
           <div className="bg-white rounded-xl p-16 text-center border border-gray-100 shadow-sm">
             <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
@@ -127,57 +199,42 @@ export default function NoticiasPage() {
             <p className="text-sm text-gray-500">No hay noticias publicadas aún</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {news.map(item => (
-              <div
+              <button
                 key={item.id}
-                className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm"
+                onClick={() => setSelectedNews(item)}
+                className="w-full bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all flex items-center gap-4 text-left"
               >
-                {/* Imagen */}
-                {item.image_url && (
-                  <div className="relative w-full h-48 bg-gray-100">
-                    <Image
+                {/* Thumbnail */}
+                <div className="relative w-20 h-20 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
+                  {item.image_url ? (
+                    <img
                       src={item.image_url}
                       alt={item.title}
-                      fill
-                      className="object-cover"
+                      className="w-full h-full object-cover"
                     />
-                  </div>
-                )}
-
-                <div className="p-5">
-                  {/* Autor */}
-                  <div className="flex items-center gap-2 mb-3">
-                    {item.author_logo && (
-                      <div className="relative w-6 h-6 rounded-full bg-gray-100 overflow-hidden">
-                        <Image
-                          src={item.author_logo}
-                          alt={item.author_name || 'Logo'}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
-                    <p className="text-xs font-medium text-gray-600">{item.author_name}</p>
-                    <span className="text-xs text-gray-400">•</span>
-                    <p className="text-xs text-gray-400">
-                      {new Date(item.published_at).toLocaleDateString('es-MX', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric'
-                      })}
-                    </p>
-                  </div>
-
-                  {/* Contenido */}
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{item.title}</h3>
-                  <p className="text-sm text-gray-600 whitespace-pre-wrap">{item.content}</p>
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <span className="text-3xl">📰</span>
+                    </div>
+                  )}
                 </div>
-              </div>
+
+                {/* Contenido */}
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-gray-900 line-clamp-2 mb-1">{item.title}</h3>
+                  <p className="text-xs text-gray-500">{item.author_name}</p>
+                </div>
+
+                {/* Flecha */}
+                <svg className="w-5 h-5 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
             ))}
           </div>
         )}
-
       </div>
     </div>
   )
