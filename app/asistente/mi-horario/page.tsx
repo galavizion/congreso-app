@@ -19,7 +19,7 @@ type SavedEvent = {
     end_time: string
     room_id: string | null
   }
-  room_name?: string | null  // ← AGREGAR | null
+  room_name?: string | null
 }
 
 export default function MiHorarioPage() {
@@ -28,6 +28,10 @@ export default function MiHorarioPage() {
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [attendeeId, setAttendeeId] = useState<string | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string>('all')
+  const [selectedRoom, setSelectedRoom] = useState<string>('all')
+  const [days, setDays] = useState<string[]>([])
+  const [rooms, setRooms] = useState<string[]>([])
 
   useEffect(() => {
     load()
@@ -97,6 +101,25 @@ export default function MiHorarioPage() {
     }).filter(item => item.event) // Solo eventos que existen
 
     setSavedEvents(enriched)
+
+    // Extraer días únicos
+    const uniqueDays = [...new Set(
+      enriched.map(item => new Date(item.event.date).toLocaleDateString('es-MX', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
+      }))
+    )]
+    setDays(uniqueDays)
+
+    // Extraer salas únicas
+    const uniqueRooms = [...new Set(
+      enriched
+        .filter(item => item.room_name)
+        .map(item => item.room_name!)
+    )]
+    setRooms(uniqueRooms)
+
     setLoading(false)
   }
 
@@ -117,8 +140,26 @@ export default function MiHorarioPage() {
     load()
   }
 
+  // Filtrar eventos
+  let filteredEvents = savedEvents
+
+  if (selectedDay !== 'all') {
+    filteredEvents = filteredEvents.filter(item => {
+      const eventDay = new Date(item.event.date).toLocaleDateString('es-MX', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
+      })
+      return eventDay === selectedDay
+    })
+  }
+
+  if (selectedRoom !== 'all') {
+    filteredEvents = filteredEvents.filter(item => item.room_name === selectedRoom)
+  }
+
   // Agrupar por día
-  const eventsByDay = savedEvents.reduce((acc, item) => {
+  const eventsByDay = filteredEvents.reduce((acc, item) => {
     const day = new Date(item.event.date).toLocaleDateString('es-MX', {
       weekday: 'long',
       day: 'numeric',
@@ -177,9 +218,9 @@ export default function MiHorarioPage() {
             </Link>
           </div>
         ) : (
-          <div className="space-y-8">
+          <>
             {/* Stats */}
-            <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm">
+            <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
                   <span className="text-2xl">📋</span>
@@ -191,55 +232,138 @@ export default function MiHorarioPage() {
               </div>
             </div>
 
-            {/* Eventos agrupados por día */}
-            {Object.entries(eventsByDay).map(([day, dayEvents]) => (
-              <div key={day}>
-                <h2 className="text-lg font-bold text-gray-900 mb-4 capitalize">{day}</h2>
-                <div className="space-y-3">
-                  {dayEvents
-                    .sort((a, b) => a.event.start_time.localeCompare(b.event.start_time))
-                    .map(item => (
-                      <div
-                        key={item.id}
-                        className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
-                      >
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <p className="font-semibold text-gray-900">{item.event.title}</p>
-                            </div>
-                            {item.event.description && (
-                              <p className="text-sm text-gray-600 mt-1">{item.event.description}</p>
-                            )}
-                            {item.event.speaker && (
-                              <p className="text-sm text-gray-500 mt-1">🎤 {item.event.speaker}</p>
-                            )}
-                            {item.room_name && (
-                              <p className="text-xs text-gray-400 mt-1">📍 {item.room_name}</p>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="text-sm font-medium text-indigo-600">
-                              {item.event.start_time?.substring(0, 5) || ''}
-                            </p>
-                            <p className="text-xs text-gray-400">
-                              {item.event.end_time?.substring(0, 5) || ''}
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          onClick={() => removeEvent(item.id)}
-                          className="w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-                        >
-                          🗑️ Eliminar de Mi Horario
-                        </button>
-                      </div>
-                    ))}
+            {/* Tabs de días */}
+            {days.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs font-medium text-gray-600 mb-2">Filtrar por día:</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  <button
+                    onClick={() => {
+                      setSelectedDay('all')
+                      setSelectedRoom('all')
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                      selectedDay === 'all'
+                        ? 'bg-indigo-600 text-white'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    Todos
+                  </button>
+                  {days.map(day => (
+                    <button
+                      key={day}
+                      onClick={() => {
+                        setSelectedDay(day)
+                        setSelectedRoom('all')
+                      }}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                        selectedDay === day
+                          ? 'bg-indigo-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {day}
+                    </button>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+
+            {/* Tabs de salas */}
+            {rooms.length > 0 && (
+              <div className="mb-6">
+                <p className="text-xs font-medium text-gray-600 mb-2">Filtrar por sala:</p>
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                  <button
+                    onClick={() => setSelectedRoom('all')}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                      selectedRoom === 'all'
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                    }`}
+                  >
+                    Todas
+                  </button>
+                  {rooms.map(room => (
+                    <button
+                      key={room}
+                      onClick={() => setSelectedRoom(room)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                        selectedRoom === room
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {room}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Eventos */}
+            {filteredEvents.length === 0 ? (
+              <div className="bg-white rounded-xl p-12 text-center border border-gray-100 shadow-sm">
+                <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-3">
+                  <span className="text-3xl">🔍</span>
+                </div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">Sin eventos</h3>
+                <p className="text-sm text-gray-500">No hay eventos con estos filtros</p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Eventos agrupados por día */}
+                {Object.entries(eventsByDay).map(([day, dayEvents]) => (
+                  <div key={day}>
+                    <h2 className="text-lg font-bold text-gray-900 mb-4 capitalize">{day}</h2>
+                    <div className="space-y-3">
+                      {dayEvents
+                        .sort((a, b) => a.event.start_time.localeCompare(b.event.start_time))
+                        .map(item => (
+                          <div
+                            key={item.id}
+                            className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
+                          >
+                            <div className="flex items-start justify-between gap-3 mb-3">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <p className="font-semibold text-gray-900">{item.event.title}</p>
+                                </div>
+                                {item.event.description && (
+                                  <p className="text-sm text-gray-600 mt-1">{item.event.description}</p>
+                                )}
+                                {item.event.speaker && (
+                                  <p className="text-sm text-gray-500 mt-1">🎤 {item.event.speaker}</p>
+                                )}
+                                {item.room_name && (
+                                  <p className="text-xs text-gray-400 mt-1">📍 {item.room_name}</p>
+                                )}
+                              </div>
+                              <div className="text-right shrink-0">
+                                <p className="text-sm font-medium text-indigo-600">
+                                  {item.event.start_time?.substring(0, 5) || ''}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  {item.event.end_time?.substring(0, 5) || ''}
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              onClick={() => removeEvent(item.id)}
+                              className="w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                            >
+                              🗑️ Eliminar de Mi Horario
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
