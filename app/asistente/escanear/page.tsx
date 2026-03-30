@@ -42,6 +42,9 @@ export default function EscanearPage() {
     console.log('📱 navigator.mediaDevices disponible:', !!navigator.mediaDevices)
     console.log('📱 getUserMedia disponible:', !!navigator.mediaDevices?.getUserMedia)
     
+    // Primero cambiar a modo scanning para renderizar el video
+    setScanning(true)
+    
     try {
       console.log('🔄 Solicitando permisos de cámara...')
       const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -51,21 +54,30 @@ export default function EscanearPage() {
       console.log('✅ Stream obtenido:', stream)
       console.log('📹 Video tracks:', stream.getVideoTracks())
       
+      // Esperar a que el video se monte
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
       if (videoRef.current) {
         console.log('✅ videoRef existe, asignando stream...')
         videoRef.current.srcObject = stream
         streamRef.current = stream
-        setScanning(true)
         console.log('✅ Cámara iniciada correctamente')
-        scanQR()
+        
+        // Esperar a que el video esté listo
+        videoRef.current.onloadedmetadata = () => {
+          console.log('✅ Video metadata cargada, iniciando escaneo...')
+          scanQR()
+        }
       } else {
-        console.error('❌ videoRef.current es null')
+        console.error('❌ videoRef.current es null después de esperar')
+        setScanning(false)
       }
     } catch (error) {
       console.error('❌ Error accessing camera:', error)
       console.error('❌ Error name:', (error as any)?.name)
       console.error('❌ Error message:', (error as any)?.message)
       alert('No se pudo acceder a la cámara. Verifica los permisos. Error: ' + (error as any)?.message)
+      setScanning(false)
     }
   }
 
