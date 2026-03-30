@@ -166,7 +166,7 @@ setNewsCount(unviewedCount)
               <span className="text-2xl">🏪</span>
             </div>
             <p className="font-semibold text-gray-900 text-sm group-hover:text-indigo-600 transition-colors">Stands</p>
-            <p className="text-xs text-gray-500 mt-0.5">Escanea QR</p>
+            <p className="text-xs text-gray-500 mt-0.5">Patrocinadores</p>
           </Link>
 
           {/* Regalos */}
@@ -184,17 +184,24 @@ setNewsCount(unviewedCount)
         </div>
 
         {/* CTA Escanear */}
-        <div className="bg-white rounded-xl p-5 border border-indigo-100 shadow-sm mt-6">
-          <div className="flex items-center gap-4">
-            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
-              <span className="text-2xl">📱</span>
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-900">Escanea un QR</p>
-              <p className="text-sm text-gray-500 mt-0.5">Gana 10 puntos por cada stand visitado</p>
-            </div>
-          </div>
-        </div>
+      {/* CTA Escanear */}
+<Link
+  href="/asistente/escanear"
+  className="block bg-white rounded-xl p-5 border border-indigo-100 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all mt-6"
+>
+  <div className="flex items-center gap-4">
+    <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+      <span className="text-2xl">📱</span>
+    </div>
+    <div className="flex-1">
+      <p className="font-semibold text-gray-900">Escanea un QR</p>
+      <p className="text-sm text-gray-500 mt-0.5">Gana 10 puntos por cada stand visitado</p>
+    </div>
+    <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  </div>
+</Link>
 
       </div>
     </div>
