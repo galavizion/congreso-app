@@ -257,7 +257,7 @@ export default function RegalosPage() {
                   className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all relative"
                 >
                   {/* Imagen */}
-                  <div className="relative w-full h-40 bg-gray-50">
+                  <div className="relative w-full h-32 bg-gray-50">
                     {gift.image_url ? (
                       <img
                         src={gift.image_url}
@@ -266,27 +266,25 @@ export default function RegalosPage() {
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
-                        <span className="text-5xl">🎁</span>
+                        <span className="text-4xl">🎁</span>
                       </div>
                     )}
 
-                    {/* Badges */}
-                    <div className="absolute top-2 right-2 flex flex-col gap-1">
-                      {alreadyRedeemed && (
+                    {/* Badge único - prioridad: canjeado > agotado > últimos */}
+                    <div className="absolute top-2 right-2">
+                      {alreadyRedeemed ? (
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-green-600 px-2 py-1 rounded-md shadow-sm">
                           ✓ Canjeado
                         </span>
-                      )}
-                      {gift.stock === 0 && (
+                      ) : gift.stock === 0 ? (
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-red-600 px-2 py-1 rounded-md shadow-sm">
                           Agotado
                         </span>
-                      )}
-                      {isLowStock && (
+                      ) : isLowStock ? (
                         <span className="inline-flex items-center gap-1 text-xs font-bold text-white bg-orange-600 px-2 py-1 rounded-md shadow-sm">
                           Últimos {gift.stock}
                         </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
 
