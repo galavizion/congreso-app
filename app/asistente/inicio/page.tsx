@@ -80,7 +80,7 @@ export default function AsistenteDashboardPage() {
 
       <div className="px-6 py-8 max-w-5xl mx-auto">
 
-        {/* Stats de puntos y visitados */}
+        {/* Stats de puntos y visitados  
         <div className="grid grid-cols-2 gap-3 mb-6">
           <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
             <p className="text-3xl font-bold text-gray-900">{totalPoints}</p>
@@ -90,7 +90,7 @@ export default function AsistenteDashboardPage() {
             <p className="text-3xl font-bold text-gray-900">{leadsCount}</p>
             <p className="text-xs font-medium text-gray-500 mt-1">Stands Visitados</p>
           </div>
-        </div>
+        </div> */}
 
         {/* Menu Grid 3x3 */}
         <div className="grid grid-cols-3 gap-3">
@@ -141,6 +141,7 @@ export default function AsistenteDashboardPage() {
             href="/asistente/mapa"
             className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center"
           >
+            
             <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center mb-2">
               <span className="text-2xl">🗺️</span>
             </div>
