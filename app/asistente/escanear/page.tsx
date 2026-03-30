@@ -1,7 +1,5 @@
 'use client'
 
-'use client'
-
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -96,13 +94,24 @@ export default function EscanearPage() {
   }
 
   async function scanQR() {
-    if (!videoRef.current || !canvasRef.current || !scanning) return
+    console.log('🎬 scanQR() llamado, scanning:', scanning)
+    
+    if (!videoRef.current || !canvasRef.current) {
+      console.log('❌ Refs no disponibles')
+      return
+    }
 
     const video = videoRef.current
     const canvas = canvasRef.current
     const context = canvas.getContext('2d')
 
-    if (!context || video.readyState !== video.HAVE_ENOUGH_DATA) {
+    if (!context) {
+      console.log('❌ No hay context')
+      return
+    }
+
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      console.log('⏳ Video no listo, esperando...')
       setTimeout(scanQR, 100)
       return
     }
@@ -131,9 +140,8 @@ export default function EscanearPage() {
       return
     }
 
-    if (scanning) {
-      requestAnimationFrame(scanQR)
-    }
+    // Continuar escaneando
+    requestAnimationFrame(scanQR)
   }
 
   async function processQR(qrData: string) {
@@ -347,7 +355,7 @@ export default function EscanearPage() {
                   onClick={testScan}
                   className="w-full bg-gray-100 text-gray-700 font-medium px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                 >
-                  🧪   (desarrollo)
+                  🧪  
                 </button>
               </div>
             )}
