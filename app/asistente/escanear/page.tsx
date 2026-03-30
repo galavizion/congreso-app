@@ -347,7 +347,7 @@ export default function EscanearPage() {
                   onClick={testScan}
                   className="w-full bg-gray-100 text-gray-700 font-medium px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                 >
-                  🧪 Probar sin cámara (desarrollo)
+                  🧪   (desarrollo)
                 </button>
               </div>
             )}
