@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import jsQR from 'jsqr'
 
 export default function EscanearPage() {
   const router = useRouter()
@@ -110,18 +111,19 @@ export default function EscanearPage() {
 
     const imageData = context.getImageData(0, 0, canvas.width, canvas.height)
     
-    // Aquí usarías una librería QR como jsQR
-    // Por ahora simularemos con detección manual
-    // const code = jsQR(imageData.data, imageData.width, imageData.height)
+    // Escanear QR con jsQR
+    const code = jsQR(imageData.data, imageData.width, imageData.height, {
+      inversionAttempts: 'dontInvert'
+    })
     
-    // Si detecta QR, procesar:
-    // if (code) {
-    //   await processQR(code.data)
-    //   return
-    // }
+    if (code && code.data) {
+      console.log('📱 QR detectado:', code.data)
+      await processQR(code.data)
+      return
+    }
 
     if (scanning) {
-      setTimeout(scanQR, 100)
+      requestAnimationFrame(scanQR)
     }
   }
 
