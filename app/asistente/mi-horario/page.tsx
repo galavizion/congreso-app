@@ -5,366 +5,188 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-type SavedEvent = {
-  id: string
-  event_id: string
-  added_at: string
-  event: {
-    id: string
-    title: string
-    description: string | null
-    speaker: string | null
-    date: string
-    start_time: string
-    end_time: string
-    room_id: string | null
-  }
-  room_name?: string | null
-}
-
-export default function MiHorarioPage() {
+export default function AsistenteDashboardPage() {
   const router = useRouter()
   const supabase = createClient()
-  const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
+  const [profile, setProfile] = useState<any>(null)
+  const [totalPoints, setTotalPoints] = useState(0)
+  const [leadsCount, setLeadsCount] = useState(0)
+  const [newsCount, setNewsCount] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [attendeeId, setAttendeeId] = useState<string | null>(null)
-  const [selectedDay, setSelectedDay] = useState<string>('all')
-  const [selectedRoom, setSelectedRoom] = useState<string>('all')
-  const [days, setDays] = useState<string[]>([])
-  const [rooms, setRooms] = useState<string[]>([])
 
   useEffect(() => {
+    async function load() {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) { router.push('/login'); return }
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single()
+
+      if (!profileData || profileData.role !== 'attendee') { router.push('/login'); return }
+
+      setProfile(profileData)
+      setTotalPoints(profileData?.points ?? 0)
+
+      // Count de leads (stands visitados)
+      const { count: leadsCount } = await supabase
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .eq('attendee_id', session.user.id)
+
+      setLeadsCount(leadsCount ?? 0)
+
+      // Count de noticias del congreso
+      const { count: newsCount } = await supabase
+        .from('news')
+        .select('id', { count: 'exact', head: true })
+        .eq('congress_id', profileData.congress_id)
+
+      setNewsCount(newsCount ?? 0)
+
+      setLoading(false)
+    }
     load()
   }, [])
 
-  async function load() {
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) { router.push('/login'); return }
-
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', session.user.id)
-      .single()
-
-    if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
-
-    setAttendeeId(profile.id)
-
-    // Cargar eventos guardados
-    const { data: savedData } = await supabase
-      .from('attendee_schedule')
-      .select('id, event_id, added_at')
-      .eq('attendee_id', profile.id)
-      .order('added_at', { ascending: false })
-
-    if (!savedData || savedData.length === 0) {
-      setLoading(false)
-      return
-    }
-
-    // Cargar detalles de eventos
-    const eventIds = savedData.map(s => s.event_id)
-    const { data: eventsData } = await supabase
-      .from('congress_events')
-      .select('*')
-      .in('id', eventIds)
-
-    if (!eventsData) {
-      setLoading(false)
-      return
-    }
-
-    // Cargar nombres de salas
-    const roomIds = [...new Set(eventsData.filter(e => e.room_id).map(e => e.room_id))]
-    let roomsMap: Record<string, string> = {}
-
-    if (roomIds.length > 0) {
-      const { data: roomsData } = await supabase
-        .from('congress_rooms')
-        .select('id, name')
-        .in('id', roomIds)
-
-      if (roomsData) {
-        roomsMap = Object.fromEntries(roomsData.map(r => [r.id, r.name]))
-      }
-    }
-
-    // Combinar datos
-    const enriched = savedData.map(saved => {
-      const event = eventsData.find(e => e.id === saved.event_id)
-      return {
-        ...saved,
-        event: event!,
-        room_name: event?.room_id ? roomsMap[event.room_id] : null
-      }
-    }).filter(item => item.event) // Solo eventos que existen
-
-    setSavedEvents(enriched)
-
-    // Extraer días únicos
-    const uniqueDays = [...new Set(
-      enriched.map(item => new Date(item.event.date).toLocaleDateString('es-MX', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short'
-      }))
-    )]
-    setDays(uniqueDays)
-
-    // Extraer salas únicas
-    const uniqueRooms = [...new Set(
-      enriched
-        .filter(item => item.room_name)
-        .map(item => item.room_name!)
-    )]
-    setRooms(uniqueRooms)
-
-    setLoading(false)
-  }
-
-  async function removeEvent(scheduleId: string) {
-    if (!attendeeId) return
-
-    const { error } = await supabase
-      .from('attendee_schedule')
-      .delete()
-      .eq('id', scheduleId)
-
-    if (error) {
-      alert('Error al eliminar: ' + error.message)
-      return
-    }
-
-    // Recargar
-    load()
-  }
-
-  // Filtrar eventos
-  let filteredEvents = savedEvents
-
-  if (selectedDay !== 'all') {
-    filteredEvents = filteredEvents.filter(item => {
-      const eventDay = new Date(item.event.date).toLocaleDateString('es-MX', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short'
-      })
-      return eventDay === selectedDay
-    })
-  }
-
-  if (selectedRoom !== 'all') {
-    filteredEvents = filteredEvents.filter(item => item.room_name === selectedRoom)
-  }
-
-  // Agrupar por día
-  const eventsByDay = filteredEvents.reduce((acc, item) => {
-    const day = new Date(item.event.date).toLocaleDateString('es-MX', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    })
-    if (!acc[day]) acc[day] = []
-    acc[day].push(item)
-    return acc
-  }, {} as Record<string, SavedEvent[]>)
-
-  if (loading) return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
-        <p className="text-sm text-gray-500">Cargando...</p>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <p className="text-sm text-gray-500">Cargando...</p>
+        </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
+
+      {/* Header */}
       <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
         <div className="px-6 py-6">
-          <div className="flex items-center gap-4 max-w-5xl mx-auto">
-            <Link
-              href="/asistente/inicio"
-              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M19 12H5M12 19l-7-7 7-7"/>
-              </svg>
-            </Link>
+          <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div>
-              <h1 className="text-xl font-bold text-white">Mi Horario</h1>
-              <p className="text-sm text-white/80 mt-0.5">Eventos que agregaste</p>
+              <h1 className="text-xl font-bold text-white">WinWin</h1>
+              <p className="text-sm text-white/80 mt-0.5">Hola, {profile?.name?.split(' ')[0] || 'Asistente'} 👋</p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-purple-400"></div>
+        <div className="h-1 bg-indigo-400"></div>
       </div>
 
       <div className="px-6 py-8 max-w-5xl mx-auto">
-        {savedEvents.length === 0 ? (
-          <div className="bg-white rounded-xl p-16 text-center border border-gray-100 shadow-sm">
-            <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
-              <span className="text-4xl">📋</span>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin eventos guardados</h3>
-            <p className="text-sm text-gray-500 mb-6">Agrega eventos desde la sección de Horarios</p>
-            <Link
-              href="/asistente/horarios"
-              className="inline-block bg-indigo-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors"
-            >
-              Ver Horarios
-            </Link>
+
+        {/* Stats de puntos y visitados */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+            <p className="text-3xl font-bold text-gray-900">{totalPoints}</p>
+            <p className="text-xs font-medium text-gray-500 mt-1">Puntos</p>
           </div>
-        ) : (
-          <>
-            {/* Stats */}
-            <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                  <span className="text-2xl">📋</span>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Total de eventos</p>
-                  <p className="text-2xl font-bold text-gray-900">{savedEvents.length}</p>
-                </div>
-              </div>
+          <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm text-center">
+            <p className="text-3xl font-bold text-gray-900">{leadsCount}</p>
+            <p className="text-xs font-medium text-gray-500 mt-1">Stands Visitados</p>
+          </div>
+        </div>
+
+        {/* Menu Grid 3x3 */}
+        <div className="grid grid-cols-3 gap-3">
+          
+          {/* Horarios */}
+          <Link
+            href="/asistente/horarios"
+            className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 rounded-lg bg-violet-50 flex items-center justify-center mb-2">
+              <span className="text-2xl">🗓️</span>
             </div>
+            <p className="font-semibold text-gray-900 text-sm group-hover:text-indigo-600 transition-colors">Horarios</p>
+            <p className="text-xs text-gray-500 mt-0.5">Conferencias</p>
+          </Link>
 
-            {/* Tabs de días */}
-            {days.length > 0 && (
-              <div className="mb-4">
-                <p className="text-xs font-medium text-gray-600 mb-2">Filtrar por día:</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  <button
-                    onClick={() => {
-                      setSelectedDay('all')
-                      setSelectedRoom('all')
-                    }}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                      selectedDay === 'all'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    Todos
-                  </button>
-                  {days.map(day => (
-                    <button
-                      key={day}
-                      onClick={() => {
-                        setSelectedDay(day)
-                        setSelectedRoom('all')
-                      }}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                        selectedDay === day
-                          ? 'bg-indigo-600 text-white'
-                          : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {day}
-                    </button>
-                  ))}
-                </div>
+          {/* Mi Horario */}
+          <Link
+            href="/asistente/mi-horario"
+            className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 rounded-lg bg-purple-50 flex items-center justify-center mb-2">
+              <span className="text-2xl">📋</span>
+            </div>
+            <p className="font-semibold text-gray-900 text-sm group-hover:text-indigo-600 transition-colors">Mi Horario</p>
+            <p className="text-xs text-gray-500 mt-0.5">Tus eventos</p>
+          </Link>
+
+          {/* Noticias */}
+          <Link
+            href="/asistente/noticias"
+            className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center relative"
+          >
+            {newsCount > 0 && (
+              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {newsCount}
               </div>
             )}
+            <div className="w-12 h-12 rounded-lg bg-blue-50 flex items-center justify-center mb-2">
+              <span className="text-2xl">📰</span>
+            </div>
+            <p className="font-semibold text-gray-900 text-sm group-hover:text-indigo-600 transition-colors">Noticias</p>
+            <p className="text-xs text-gray-500 mt-0.5">Novedades</p>
+          </Link>
 
-            {/* Tabs de salas */}
-            {rooms.length > 0 && (
-              <div className="mb-6">
-                <p className="text-xs font-medium text-gray-600 mb-2">Filtrar por sala:</p>
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                  <button
-                    onClick={() => setSelectedRoom('all')}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                      selectedRoom === 'all'
-                        ? 'bg-purple-600 text-white'
-                        : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    Todas
-                  </button>
-                  {rooms.map(room => (
-                    <button
-                      key={room}
-                      onClick={() => setSelectedRoom(room)}
-                      className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                        selectedRoom === room
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      {room}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Mapa */}
+          <Link
+            href="/asistente/mapa"
+            className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center mb-2">
+              <span className="text-2xl">🗺️</span>
+            </div>
+            <p className="font-semibold text-gray-900 text-sm group-hover:text-indigo-600 transition-colors">Mapa</p>
+            <p className="text-xs text-gray-500 mt-0.5">Encuentra stands</p>
+          </Link>
 
-            {/* Eventos */}
-            {filteredEvents.length === 0 ? (
-              <div className="bg-white rounded-xl p-12 text-center border border-gray-100 shadow-sm">
-                <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-3">
-                  <span className="text-3xl">🔍</span>
-                </div>
-                <h3 className="text-base font-semibold text-gray-900 mb-1">Sin eventos</h3>
-                <p className="text-sm text-gray-500">No hay eventos con estos filtros</p>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {/* Eventos agrupados por día */}
-                {Object.entries(eventsByDay).map(([day, dayEvents]) => (
-                  <div key={day}>
-                    <h2 className="text-lg font-bold text-gray-900 mb-4 capitalize">{day}</h2>
-                    <div className="space-y-3">
-                      {dayEvents
-                        .sort((a, b) => a.event.start_time.localeCompare(b.event.start_time))
-                        .map(item => (
-                          <div
-                            key={item.id}
-                            className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm"
-                          >
-                            <div className="flex items-start justify-between gap-3 mb-3">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <p className="font-semibold text-gray-900">{item.event.title}</p>
-                                </div>
-                                {item.event.description && (
-                                  <p className="text-sm text-gray-600 mt-1">{item.event.description}</p>
-                                )}
-                                {item.event.speaker && (
-                                  <p className="text-sm text-gray-500 mt-1">🎤 {item.event.speaker}</p>
-                                )}
-                                {item.room_name && (
-                                  <p className="text-xs text-gray-400 mt-1">📍 {item.room_name}</p>
-                                )}
-                              </div>
-                              <div className="text-right shrink-0">
-                                <p className="text-sm font-medium text-indigo-600">
-                                  {item.event.start_time?.substring(0, 5) || ''}
-                                </p>
-                                <p className="text-xs text-gray-400">
-                                  {item.event.end_time?.substring(0, 5) || ''}
-                                </p>
-                              </div>
-                            </div>
+          {/* Stands */}
+          <Link
+            href="/asistente/stands"
+            className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 rounded-lg bg-cyan-50 flex items-center justify-center mb-2">
+              <span className="text-2xl">🏪</span>
+            </div>
+            <p className="font-semibold text-gray-900 text-sm group-hover:text-indigo-600 transition-colors">Stands</p>
+            <p className="text-xs text-gray-500 mt-0.5">Escanea QR</p>
+          </Link>
 
-                            <button
-                              onClick={() => removeEvent(item.id)}
-                              className="w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-                            >
-                              🗑️ Eliminar de Mi Horario
-                            </button>
-                          </div>
-                        ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+          {/* Regalos */}
+          <Link
+            href="/asistente/regalos"
+            className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center"
+          >
+            <div className="w-12 h-12 rounded-lg bg-rose-50 flex items-center justify-center mb-2">
+              <span className="text-2xl">🎁</span>
+            </div>
+            <p className="font-semibold text-gray-900 text-sm group-hover:text-indigo-600 transition-colors">Regalos</p>
+            <p className="text-xs text-gray-500 mt-0.5">{totalPoints} puntos</p>
+          </Link>
+
+        </div>
+
+        {/* CTA Escanear */}
+        <div className="bg-white rounded-xl p-5 border border-indigo-100 shadow-sm mt-6">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
+              <span className="text-2xl">📱</span>
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-gray-900">Escanea un QR</p>
+              <p className="text-sm text-gray-500 mt-0.5">Gana 10 puntos por cada stand visitado</p>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   )
