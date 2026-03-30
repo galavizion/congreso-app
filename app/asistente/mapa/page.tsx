@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -10,6 +10,13 @@ export default function MapaPage() {
   const supabase = createClient()
   const [congress, setCongress] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  
+  // Zoom y pan
+  const [scale, setScale] = useState(1)
+  const [position, setPosition] = useState({ x: 0, y: 0 })
+  const [isDragging, setIsDragging] = useState(false)
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function load() {
@@ -27,8 +34,7 @@ export default function MapaPage() {
       const { data: congressData } = await supabase
         .from('congresses')
         .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
+        .eq('id', profile.congress_id)
         .single()
 
       setCongress(congressData)
@@ -36,6 +42,61 @@ export default function MapaPage() {
     }
     load()
   }, [])
+
+  function handleZoomIn() {
+    setScale(prev => Math.min(prev + 0.25, 3))
+  }
+
+  function handleZoomOut() {
+    setScale(prev => Math.max(prev - 0.25, 1))
+  }
+
+  function handleReset() {
+    setScale(1)
+    setPosition({ x: 0, y: 0 })
+  }
+
+  function handleMouseDown(e: React.MouseEvent) {
+    if (scale <= 1) return
+    setIsDragging(true)
+    setDragStart({
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    })
+  }
+
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!isDragging || scale <= 1) return
+    setPosition({
+      x: e.clientX - dragStart.x,
+      y: e.clientY - dragStart.y
+    })
+  }
+
+  function handleMouseUp() {
+    setIsDragging(false)
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (scale <= 1 || e.touches.length !== 1) return
+    setIsDragging(true)
+    setDragStart({
+      x: e.touches[0].clientX - position.x,
+      y: e.touches[0].clientY - position.y
+    })
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!isDragging || scale <= 1 || e.touches.length !== 1) return
+    setPosition({
+      x: e.touches[0].clientX - dragStart.x,
+      y: e.touches[0].clientY - dragStart.y
+    })
+  }
+
+  function handleTouchEnd() {
+    setIsDragging(false)
+  }
 
   if (loading) return (
     <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
@@ -70,12 +131,77 @@ export default function MapaPage() {
 
       <div className="px-6 py-8 max-w-5xl mx-auto">
         {congress?.map_url ? (
-          <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-            <img
-              src={congress.map_url}
-              alt="Mapa del congreso"
-              className="w-full h-auto"
-            />
+          <div className="bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm relative">
+            
+            {/* Controles de zoom */}
+            <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+              <button
+                onClick={handleZoomIn}
+                disabled={scale >= 3}
+                className="w-10 h-10 rounded-lg bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Acercar"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              </button>
+              <button
+                onClick={handleZoomOut}
+                disabled={scale <= 1}
+                className="w-10 h-10 rounded-lg bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Alejar"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
+                </svg>
+              </button>
+              {scale > 1 && (
+                <button
+                  onClick={handleReset}
+                  className="w-10 h-10 rounded-lg bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                  title="Restablecer"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+              )}
+            </div>
+
+            {/* Contenedor con overflow para pan */}
+            <div
+              ref={containerRef}
+              className="w-full overflow-hidden touch-none"
+              style={{ 
+                height: '70vh',
+                cursor: scale > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default'
+              }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <img
+                src={congress.map_url}
+                alt="Mapa del congreso"
+                className="w-full h-full object-contain transition-transform duration-200"
+                style={{
+                  transform: `scale(${scale}) translate(${position.x / scale}px, ${position.y / scale}px)`,
+                  transformOrigin: 'center center'
+                }}
+                draggable={false}
+              />
+            </div>
+
+            {/* Indicador de zoom */}
+            {scale > 1 && (
+              <div className="absolute bottom-4 left-4 bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm">
+                {Math.round(scale * 100)}%
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-xl p-16 text-center border border-gray-100 shadow-sm">
