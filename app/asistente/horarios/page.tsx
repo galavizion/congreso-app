@@ -10,8 +10,9 @@ type Event = {
   title: string
   description: string | null
   speaker: string | null
-  starts_at: string
-  ends_at: string
+  date: string           // ← CAMBIAR
+  start_time: string     // ← CAMBIAR
+  end_time: string       // ← CAMBIAR
   room_id: string | null
   room_name?: string
 }
@@ -49,7 +50,7 @@ export default function HorariosPage() {
   .from('congress_events')
   .select('*')
   .eq('congress_id', profile.congress_id)
-  .order('starts_at', { ascending: true })
+  .order('start_time', { ascending: true })  // ← CAMBIAR
 
 console.log('🔍 Events query:', { eventsData, error, congress_id: profile.congress_id })
 
@@ -88,13 +89,13 @@ if (!eventsData) {
     setEvents(enrichedEvents)
 
     // Extraer días únicos
-    const uniqueDays = [...new Set(
-      eventsData.map(e => new Date(e.starts_at).toLocaleDateString('es-MX', {
-        weekday: 'short',
-        day: 'numeric',
-        month: 'short'
-      }))
-    )]
+   const uniqueDays = [...new Set(
+  eventsData.map(e => new Date(e.date).toLocaleDateString('es-MX', {  // ← CAMBIAR a e.date
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short'
+  }))
+)]
     setDays(uniqueDays)
 
     // Cargar eventos ya guardados
@@ -155,11 +156,11 @@ if (!eventsData) {
   const filteredEvents = selectedDay === 'all' 
     ? events 
     : events.filter(e => {
-        const eventDay = new Date(e.starts_at).toLocaleDateString('es-MX', {
-          weekday: 'short',
-          day: 'numeric',
-          month: 'short'
-        })
+       const eventDay = new Date(e.date).toLocaleDateString('es-MX', {  // ← CAMBIAR a e.date
+  weekday: 'short',
+  day: 'numeric',
+  month: 'short'
+})
         return eventDay === selectedDay
       })
 
@@ -277,16 +278,16 @@ if (!eventsData) {
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-sm font-medium text-gray-700">
-                              {new Date(event.starts_at).toLocaleTimeString('es-MX', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                              {new Date(`${event.date}T${event.start_time}`).toLocaleTimeString('es-MX', {  // ← CAMBIAR
+  hour: '2-digit',
+  minute: '2-digit',
+})}
                             </p>
                             <p className="text-xs text-gray-400">
-                              {new Date(event.ends_at).toLocaleTimeString('es-MX', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
+                             {new Date(`${event.date}T${event.end_time}`).toLocaleTimeString('es-MX', {  // ← CAMBIAR
+  hour: '2-digit',
+  minute: '2-digit',
+})}
                             </p>
                           </div>
                         </div>
