@@ -4,7 +4,6 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import jsQR from 'jsqr'
 
 export default function EscanearPage() {
   const router = useRouter()
@@ -39,20 +38,34 @@ export default function EscanearPage() {
   }, [])
 
   async function startCamera() {
+    console.log('🎥 Intentando abrir cámara...')
+    console.log('📱 navigator.mediaDevices disponible:', !!navigator.mediaDevices)
+    console.log('📱 getUserMedia disponible:', !!navigator.mediaDevices?.getUserMedia)
+    
     try {
+      console.log('🔄 Solicitando permisos de cámara...')
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { facingMode: 'environment' } 
       })
       
+      console.log('✅ Stream obtenido:', stream)
+      console.log('📹 Video tracks:', stream.getVideoTracks())
+      
       if (videoRef.current) {
+        console.log('✅ videoRef existe, asignando stream...')
         videoRef.current.srcObject = stream
         streamRef.current = stream
         setScanning(true)
+        console.log('✅ Cámara iniciada correctamente')
         scanQR()
+      } else {
+        console.error('❌ videoRef.current es null')
       }
     } catch (error) {
-      console.error('Error accessing camera:', error)
-      alert('No se pudo acceder a la cámara. Verifica los permisos.')
+      console.error('❌ Error accessing camera:', error)
+      console.error('❌ Error name:', (error as any)?.name)
+      console.error('❌ Error message:', (error as any)?.message)
+      alert('No se pudo acceder a la cámara. Verifica los permisos. Error: ' + (error as any)?.message)
     }
   }
 
@@ -87,13 +100,13 @@ export default function EscanearPage() {
     
     // Aquí usarías una librería QR como jsQR
     // Por ahora simularemos con detección manual
-   const code = jsQR(imageData.data, imageData.width, imageData.height)
+    // const code = jsQR(imageData.data, imageData.width, imageData.height)
     
     // Si detecta QR, procesar:
-    if (code) {
-      await processQR(code.data)
-      return
-     }
+    // if (code) {
+    //   await processQR(code.data)
+    //   return
+    // }
 
     if (scanning) {
       setTimeout(scanQR, 100)
