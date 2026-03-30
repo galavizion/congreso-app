@@ -46,7 +46,9 @@ export default function MiQRPage() {
     </div>
   )
 
-  const qrValue = `${process.env.NEXT_PUBLIC_APP_URL}/scan/${stand?.qr_code}`
+  // Quitar slash final de la URL base si existe, y usar stand.id
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '') || 'https://winwin-brown.vercel.app'
+  const qrValue = `${baseUrl}/scan/${stand?.id}`
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
