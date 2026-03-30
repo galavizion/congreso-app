@@ -19,7 +19,7 @@ type SavedEvent = {
     end_time: string
     room_id: string | null
   }
-  room_name?: string
+  room_name?: string | null  // ← AGREGAR | null
 }
 
 export default function MiHorarioPage() {
