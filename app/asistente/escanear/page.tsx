@@ -67,7 +67,11 @@ export default function EscanearPage() {
         // Esperar a que el video esté listo
         videoRef.current.onloadedmetadata = () => {
           console.log('✅ Video metadata cargada, iniciando escaneo...')
-          scanQR()
+          // Dar tiempo extra para que el video esté completamente listo
+          setTimeout(() => {
+            console.log('🚀 Ejecutando scanQR()...')
+            scanQR()
+          }, 500)
         }
       } else {
         console.error('❌ videoRef.current es null después de esperar')
@@ -150,21 +154,33 @@ export default function EscanearPage() {
     stopCamera()
 
     try {
-      // El QR debe contener el stand_id
-      const standId = qrData
+      // Extraer stand_id de la URL si viene como URL completa
+      let standId = qrData
+      
+      // Si el QR es una URL, extraer el ID del final
+      if (qrData.includes('scan/')) {
+        const parts = qrData.split('scan/')
+        standId = parts[parts.length - 1]
+        console.log('🔍 Stand ID extraído de URL:', standId)
+      }
+
+      console.log('🎯 Procesando stand_id:', standId)
 
       // Verificar que el stand existe y es del congreso correcto
-      const { data: stand } = await supabase
+      const { data: stand, error: standError } = await supabase
         .from('stands')
         .select('*')
         .eq('id', standId)
         .eq('congress_id', congressId)
         .single()
 
-      if (!stand) {
+      if (standError || !stand) {
+        console.error('❌ Error buscando stand:', standError)
         setResult({ success: false, message: 'QR inválido o stand no encontrado' })
         return
       }
+
+      console.log('✅ Stand encontrado:', stand.name)
 
       // Verificar si ya visitó este stand
       const { data: existingLead } = await supabase
@@ -351,12 +367,12 @@ export default function EscanearPage() {
                 </button>
 
                 {/* Botón de prueba (solo desarrollo) */}
-                <button
+             {/*    <button
                   onClick={testScan}
                   className="w-full bg-gray-100 text-gray-700 font-medium px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors text-sm"
                 >
-                  🧪  
-                </button>
+                  🧪 Probar sin cámara (desarrollo)
+                </button> */}
               </div>
             )}
           </div>
