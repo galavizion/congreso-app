@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 
 type News = {
@@ -23,6 +22,8 @@ export default function NoticiasPage() {
   const supabase = createClient()
   const [news, setNews] = useState<News[]>([])
   const [selectedNews, setSelectedNews] = useState<News | null>(null)
+  const [selectedDay, setSelectedDay] = useState<string>('all')
+  const [days, setDays] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -83,8 +84,31 @@ export default function NoticiasPage() {
     }))
 
     setNews(enrichedNews)
+
+    // Extraer días únicos
+    const uniqueDays = [...new Set(
+      newsData.map(n => new Date(n.published_at).toLocaleDateString('es-MX', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      }))
+    )]
+    setDays(uniqueDays)
+
     setLoading(false)
   }
+
+  // Filtrar noticias por día
+  const filteredNews = selectedDay === 'all'
+    ? news
+    : news.filter(n => {
+        const newsDay = new Date(n.published_at).toLocaleDateString('es-MX', {
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric'
+        })
+        return newsDay === selectedDay
+      })
 
   if (loading) return (
     <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
@@ -189,18 +213,52 @@ export default function NoticiasPage() {
         <div className="h-1 bg-blue-400"></div>
       </div>
 
-      <div className="px-6 py-8 max-w-5xl mx-auto">
-        {news.length === 0 ? (
+      <div className="px-6 py-6 max-w-5xl mx-auto">
+        {/* Filtro por día */}
+        {days.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-medium text-gray-600 mb-2">Filtrar por día:</p>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button
+                onClick={() => setSelectedDay('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedDay === 'all'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                Todas
+              </button>
+              {days.map(day => (
+                <button
+                  key={day}
+                  onClick={() => setSelectedDay(day)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedDay === day
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {filteredNews.length === 0 ? (
           <div className="bg-white rounded-xl p-16 text-center border border-gray-100 shadow-sm">
             <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
               <span className="text-4xl">📰</span>
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin noticias</h3>
-            <p className="text-sm text-gray-500">No hay noticias publicadas aún</p>
+            <p className="text-sm text-gray-500">
+              {selectedDay === 'all' ? 'No hay noticias publicadas aún' : 'No hay noticias en este día'}
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
-            {news.map(item => (
+            {filteredNews.map(item => (
               <button
                 key={item.id}
                 onClick={() => setSelectedNews(item)}
