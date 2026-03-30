@@ -10,9 +10,9 @@ type Event = {
   title: string
   description: string | null
   speaker: string | null
-  date: string           // ← CAMBIAR
-  start_time: string     // ← CAMBIAR
-  end_time: string       // ← CAMBIAR
+  date: string
+  start_time: string
+  end_time: string
   room_id: string | null
   room_name?: string
 }
@@ -25,7 +25,9 @@ export default function HorariosPage() {
   const [loading, setLoading] = useState(true)
   const [attendeeId, setAttendeeId] = useState<string | null>(null)
   const [selectedDay, setSelectedDay] = useState<string>('all')
+  const [selectedRoom, setSelectedRoom] = useState<string>('all')
   const [days, setDays] = useState<string[]>([])
+  const [rooms, setRooms] = useState<string[]>([])
 
   useEffect(() => {
     load()
@@ -46,24 +48,24 @@ export default function HorariosPage() {
     setAttendeeId(profile.id)
 
     // Cargar eventos
-  const { data: eventsData, error } = await supabase
-  .from('congress_events')
-  .select('*')
-  .eq('congress_id', profile.congress_id)
-  .order('start_time', { ascending: true })  // ← CAMBIAR
+    const { data: eventsData, error } = await supabase
+      .from('congress_events')
+      .select('*')
+      .eq('congress_id', profile.congress_id)
+      .order('start_time', { ascending: true })
 
-console.log('🔍 Events query:', { eventsData, error, congress_id: profile.congress_id })
+    console.log('🔍 Events query:', { eventsData, error, congress_id: profile.congress_id })
 
-if (error) {
-  console.error('❌ Error loading events:', error)
-  setLoading(false)
-  return
-}
+    if (error) {
+      console.error('❌ Error loading events:', error)
+      setLoading(false)
+      return
+    }
 
-if (!eventsData) {
-  setLoading(false)
-  return
-}
+    if (!eventsData) {
+      setLoading(false)
+      return
+    }
 
     // Cargar nombres de salas
     const roomIds = [...new Set(eventsData.filter(e => e.room_id).map(e => e.room_id))]
@@ -89,14 +91,22 @@ if (!eventsData) {
     setEvents(enrichedEvents)
 
     // Extraer días únicos
-   const uniqueDays = [...new Set(
-  eventsData.map(e => new Date(e.date).toLocaleDateString('es-MX', {  // ← CAMBIAR a e.date
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short'
-  }))
-)]
+    const uniqueDays = [...new Set(
+      eventsData.map(e => new Date(e.date).toLocaleDateString('es-MX', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
+      }))
+    )]
     setDays(uniqueDays)
+
+    // Extraer salas únicas
+    const uniqueRooms = [...new Set(
+      enrichedEvents
+        .filter(e => e.room_name)
+        .map(e => e.room_name!)
+    )]
+    setRooms(uniqueRooms)
 
     // Cargar eventos ya guardados
     const { data: savedData } = await supabase
@@ -112,6 +122,8 @@ if (!eventsData) {
   }
 
   async function toggleEvent(eventId: string) {
+    console.log('🎯 Trying to save event:', eventId)
+    
     if (!attendeeId) return
 
     const isSaved = savedEventIds.has(eventId)
@@ -125,6 +137,7 @@ if (!eventsData) {
         .eq('event_id', eventId)
 
       if (error) {
+        console.error('❌ Error deleting:', error)
         alert('Error al eliminar: ' + error.message)
         return
       }
@@ -142,6 +155,7 @@ if (!eventsData) {
         })
 
       if (error) {
+        console.error('❌ Error inserting:', error)
         alert('Error al agregar: ' + error.message)
         return
       }
@@ -152,17 +166,23 @@ if (!eventsData) {
     }
   }
 
-  // Filtrar eventos por día seleccionado
-  const filteredEvents = selectedDay === 'all' 
-    ? events 
-    : events.filter(e => {
-       const eventDay = new Date(e.date).toLocaleDateString('es-MX', {  // ← CAMBIAR a e.date
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short'
-})
-        return eventDay === selectedDay
+  // Filtrar eventos por día y sala seleccionados
+  let filteredEvents = events
+
+  if (selectedDay !== 'all') {
+    filteredEvents = filteredEvents.filter(e => {
+      const eventDay = new Date(e.date).toLocaleDateString('es-MX', {
+        weekday: 'short',
+        day: 'numeric',
+        month: 'short'
       })
+      return eventDay === selectedDay
+    })
+  }
+
+  if (selectedRoom !== 'all') {
+    filteredEvents = filteredEvents.filter(e => e.room_name === selectedRoom)
+  }
 
   // Agrupar por sala
   const eventsByRoom = filteredEvents.reduce((acc, event) => {
@@ -206,30 +226,71 @@ if (!eventsData) {
       <div className="px-6 py-6 max-w-5xl mx-auto">
         {/* Tabs de días */}
         {days.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-4 mb-4 scrollbar-hide">
-            <button
-              onClick={() => setSelectedDay('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                selectedDay === 'all'
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              Todos
-            </button>
-            {days.map(day => (
+          <div className="mb-4">
+            <p className="text-xs font-medium text-gray-600 mb-2">Filtrar por día:</p>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
               <button
-                key={day}
-                onClick={() => setSelectedDay(day)}
+                onClick={() => {
+                  setSelectedDay('all')
+                  setSelectedRoom('all')
+                }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  selectedDay === day
+                  selectedDay === 'all'
                     ? 'bg-indigo-600 text-white'
                     : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                 }`}
               >
-                {day}
+                Todos
               </button>
-            ))}
+              {days.map(day => (
+                <button
+                  key={day}
+                  onClick={() => {
+                    setSelectedDay(day)
+                    setSelectedRoom('all')
+                  }}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedDay === day
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {day}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tabs de salas */}
+        {rooms.length > 0 && (
+          <div className="mb-6">
+            <p className="text-xs font-medium text-gray-600 mb-2">Filtrar por sala:</p>
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+              <button
+                onClick={() => setSelectedRoom('all')}
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                  selectedRoom === 'all'
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                Todas
+              </button>
+              {rooms.map(room => (
+                <button
+                  key={room}
+                  onClick={() => setSelectedRoom(room)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
+                    selectedRoom === room
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {room}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -240,7 +301,9 @@ if (!eventsData) {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Sin conferencias</h3>
             <p className="text-sm text-gray-500">
-              {selectedDay === 'all' ? 'No hay conferencias programadas' : 'No hay conferencias en este día'}
+              {selectedDay !== 'all' || selectedRoom !== 'all' 
+                ? 'No hay conferencias con estos filtros' 
+                : 'No hay conferencias programadas'}
             </p>
           </div>
         ) : (
@@ -278,22 +341,19 @@ if (!eventsData) {
                           </div>
                           <div className="text-right shrink-0">
                             <p className="text-sm font-medium text-gray-700">
-                              {new Date(`${event.date}T${event.start_time}`).toLocaleTimeString('es-MX', {  // ← CAMBIAR
-  hour: '2-digit',
-  minute: '2-digit',
-})}
+                              {event.start_time?.substring(0, 5) || ''}
                             </p>
                             <p className="text-xs text-gray-400">
-                             {new Date(`${event.date}T${event.end_time}`).toLocaleTimeString('es-MX', {  // ← CAMBIAR
-  hour: '2-digit',
-  minute: '2-digit',
-})}
+                              {event.end_time?.substring(0, 5) || ''}
                             </p>
                           </div>
                         </div>
 
                         <button
-                          onClick={() => toggleEvent(event.id)}
+                          onClick={() => {
+                            console.log('🔘 Button clicked, event:', event)
+                            toggleEvent(event.id)
+                          }}
                           className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
                             isSaved
                               ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
