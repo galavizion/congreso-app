@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useTheme } from '@/hooks/useTheme'
 
 export default function AsistenteDashboardPage() {
   const router = useRouter()
@@ -13,6 +14,9 @@ export default function AsistenteDashboardPage() {
   const [leadsCount, setLeadsCount] = useState(0)
   const [newsCount, setNewsCount] = useState(0)
   const [loading, setLoading] = useState(true)
+
+  // Cargar tema
+  const { colors } = useTheme(profile?.congress_id)
 
   useEffect(() => {
     async function load() {
@@ -38,21 +42,21 @@ export default function AsistenteDashboardPage() {
 
       setLeadsCount(leadsCount ?? 0)
 
-     // Contar noticias NO vistas
-const { data: allNews } = await supabase
-  .from('news')
-  .select('id')
-  .eq('congress_id', profileData.congress_id)
+      // Contar noticias NO vistas
+      const { data: allNews } = await supabase
+        .from('news')
+        .select('id')
+        .eq('congress_id', profileData.congress_id)
 
-const { data: viewedNews } = await supabase
-  .from('news_views')
-  .select('news_id')
-  .eq('attendee_id', session.user.id)
+      const { data: viewedNews } = await supabase
+        .from('news_views')
+        .select('news_id')
+        .eq('attendee_id', session.user.id)
 
-const viewedIds = new Set(viewedNews?.map(v => v.news_id) || [])
-const unviewedCount = allNews?.filter(n => !viewedIds.has(n.id)).length || 0
+      const viewedIds = new Set(viewedNews?.map(v => v.news_id) || [])
+      const unviewedCount = allNews?.filter(n => !viewedIds.has(n.id)).length || 0
 
-setNewsCount(unviewedCount)
+      setNewsCount(unviewedCount)
 
       setLoading(false)
     }
@@ -61,9 +65,9 @@ setNewsCount(unviewedCount)
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background }}>
         <div className="flex flex-col items-center gap-3">
-          <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+          <div className="w-10 h-10 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: colors.accent }}></div>
           <p className="text-sm text-gray-500">Cargando...</p>
         </div>
       </div>
@@ -71,19 +75,21 @@ setNewsCount(unviewedCount)
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
+    <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
 
       {/* Header */}
-      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+      <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
         <div className="px-6 py-6">
           <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div>
-              <h1 className="text-xl font-bold text-white">WinWin</h1>
-              <p className="text-sm text-white/80 mt-0.5">Hola, {profile?.name?.split(' ')[0] || 'Asistente'} 👋</p>
+              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>WinWin</h1>
+              <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>
+                Hola, {profile?.name?.split(' ')[0] || 'Asistente'} 👋
+              </p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-indigo-400"></div>
+        <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
       </div>
 
       <div className="px-6 py-8 max-w-5xl mx-auto">
@@ -133,7 +139,7 @@ setNewsCount(unviewedCount)
             className="group bg-white rounded-xl p-4 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex flex-col items-center text-center relative"
           >
             {newsCount > 0 && (
-              <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+              <div className="absolute top-2 right-2 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center" style={{ backgroundColor: colors.accent }}>
                 {newsCount}
               </div>
             )}
@@ -184,24 +190,24 @@ setNewsCount(unviewedCount)
         </div>
 
         {/* CTA Escanear */}
-      {/* CTA Escanear */}
-<Link
-  href="/asistente/escanear"
-  className="block bg-white rounded-xl p-5 border border-indigo-100 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all mt-6"
->
-  <div className="flex items-center gap-4">
-    <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center">
-      <span className="text-2xl">📱</span>
-    </div>
-    <div className="flex-1">
-      <p className="font-semibold text-gray-900">Escanea un QR</p>
-      <p className="text-sm text-gray-500 mt-0.5">Gana 10 puntos por cada stand visitado</p>
-    </div>
-    <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-    </svg>
-  </div>
-</Link>
+        <Link
+          href="/asistente/escanear"
+          className="block bg-white rounded-xl p-5 border shadow-sm hover:shadow-md transition-all mt-6"
+          style={{ borderColor: `${colors.accent}20` }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.accent}10` }}>
+              <span className="text-2xl">📱</span>
+            </div>
+            <div className="flex-1">
+              <p className="font-semibold text-gray-900">Escanea un QR</p>
+              <p className="text-sm text-gray-500 mt-0.5">Gana 10 puntos por cada stand visitado</p>
+            </div>
+            <svg className="w-5 h-5 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </Link>
 
       </div>
     </div>
