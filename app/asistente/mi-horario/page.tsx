@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useTheme } from '@/hooks/useTheme'
 
 type SavedEvent = {
   id: string
@@ -25,6 +26,7 @@ type SavedEvent = {
 export default function MiHorarioPage() {
   const router = useRouter()
   const supabase = createClient()
+  const [profile, setProfile] = useState<any>(null)
   const [savedEvents, setSavedEvents] = useState<SavedEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [attendeeId, setAttendeeId] = useState<string | null>(null)
@@ -32,6 +34,9 @@ export default function MiHorarioPage() {
   const [selectedRoom, setSelectedRoom] = useState<string>('all')
   const [days, setDays] = useState<string[]>([])
   const [rooms, setRooms] = useState<string[]>([])
+
+  // Cargar tema
+  const { colors } = useTheme(profile?.congress_id)
 
   useEffect(() => {
     load()
@@ -41,21 +46,22 @@ export default function MiHorarioPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single()
 
-    if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
+    if (!profileData || profileData.role !== 'attendee') { router.push('/login'); return }
 
-    setAttendeeId(profile.id)
+    setProfile(profileData)
+    setAttendeeId(profileData.id)
 
     // Cargar eventos guardados
     const { data: savedData } = await supabase
       .from('attendee_schedule')
       .select('id, event_id, added_at')
-      .eq('attendee_id', profile.id)
+      .eq('attendee_id', profileData.id)
       .order('added_at', { ascending: false })
 
     if (!savedData || savedData.length === 0) {
@@ -172,34 +178,35 @@ export default function MiHorarioPage() {
   }, {} as Record<string, SavedEvent[]>)
 
   if (loading) return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background }}>
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: colors.accent }}></div>
         <p className="text-sm text-gray-500">Cargando...</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+    <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
+      <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
         <div className="px-6 py-6">
           <div className="flex items-center gap-4 max-w-5xl mx-auto">
             <Link
               href="/asistente/inicio"
-              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all"
+              style={{ color: colors.header_text }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-white">Mi Horario</h1>
-              <p className="text-sm text-white/80 mt-0.5">Eventos que agregaste</p>
+              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>Mi Horario</h1>
+              <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>Eventos que agregaste</p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-purple-400"></div>
+        <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
       </div>
 
       <div className="px-6 py-8 max-w-5xl mx-auto">
@@ -212,7 +219,8 @@ export default function MiHorarioPage() {
             <p className="text-sm text-gray-500 mb-6">Agrega eventos desde la sección de Horarios</p>
             <Link
               href="/asistente/horarios"
-              className="inline-block bg-indigo-600 text-white font-semibold px-6 py-3 rounded-lg hover:bg-indigo-700 transition-colors"
+              className="inline-block text-white font-semibold px-6 py-3 rounded-lg transition-colors"
+              style={{ backgroundColor: colors.accent }}
             >
               Ver Horarios
             </Link>
@@ -222,7 +230,7 @@ export default function MiHorarioPage() {
             {/* Stats */}
             <div className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${colors.accent}15` }}>
                   <span className="text-2xl">📋</span>
                 </div>
                 <div>
@@ -244,9 +252,10 @@ export default function MiHorarioPage() {
                     }}
                     className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                       selectedDay === 'all'
-                        ? 'bg-indigo-600 text-white'
+                        ? 'text-white'
                         : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                     }`}
+                    style={selectedDay === 'all' ? { backgroundColor: colors.accent } : {}}
                   >
                     Todos
                   </button>
@@ -259,9 +268,10 @@ export default function MiHorarioPage() {
                       }}
                       className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                         selectedDay === day
-                          ? 'bg-indigo-600 text-white'
+                          ? 'text-white'
                           : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                       }`}
+                      style={selectedDay === day ? { backgroundColor: colors.accent } : {}}
                     >
                       {day}
                     </button>
@@ -279,9 +289,10 @@ export default function MiHorarioPage() {
                     onClick={() => setSelectedRoom('all')}
                     className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                       selectedRoom === 'all'
-                        ? 'bg-purple-600 text-white'
+                        ? 'text-white'
                         : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                     }`}
+                    style={selectedRoom === 'all' ? { backgroundColor: colors.accent } : {}}
                   >
                     Todas
                   </button>
@@ -291,9 +302,10 @@ export default function MiHorarioPage() {
                       onClick={() => setSelectedRoom(room)}
                       className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                         selectedRoom === room
-                          ? 'bg-purple-600 text-white'
+                          ? 'text-white'
                           : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                       }`}
+                      style={selectedRoom === room ? { backgroundColor: colors.accent } : {}}
                     >
                       {room}
                     </button>
@@ -341,7 +353,7 @@ export default function MiHorarioPage() {
                                 )}
                               </div>
                               <div className="text-right shrink-0">
-                                <p className="text-sm font-medium text-indigo-600">
+                                <p className="text-sm font-medium" style={{ color: colors.accent }}>
                                   {item.event.start_time?.substring(0, 5) || ''}
                                 </p>
                                 <p className="text-xs text-gray-400">

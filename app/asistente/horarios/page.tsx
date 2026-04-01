@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useTheme } from '@/hooks/useTheme'
 
 type Event = {
   id: string
@@ -20,6 +21,7 @@ type Event = {
 export default function HorariosPage() {
   const router = useRouter()
   const supabase = createClient()
+  const [profile, setProfile] = useState<any>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [savedEventIds, setSavedEventIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -29,6 +31,9 @@ export default function HorariosPage() {
   const [days, setDays] = useState<string[]>([])
   const [rooms, setRooms] = useState<string[]>([])
 
+  // Cargar tema
+  const { colors } = useTheme(profile?.congress_id)
+
   useEffect(() => {
     load()
   }, [])
@@ -37,24 +42,25 @@ export default function HorariosPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single()
 
-    if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
+    if (!profileData || profileData.role !== 'attendee') { router.push('/login'); return }
 
-    setAttendeeId(profile.id)
+    setProfile(profileData)
+    setAttendeeId(profileData.id)
 
     // Cargar eventos
     const { data: eventsData, error } = await supabase
       .from('congress_events')
       .select('*')
-      .eq('congress_id', profile.congress_id)
+      .eq('congress_id', profileData.congress_id)
       .order('start_time', { ascending: true })
 
-    console.log('🔍 Events query:', { eventsData, error, congress_id: profile.congress_id })
+    console.log('🔍 Events query:', { eventsData, error, congress_id: profileData.congress_id })
 
     if (error) {
       console.error('❌ Error loading events:', error)
@@ -112,7 +118,7 @@ export default function HorariosPage() {
     const { data: savedData } = await supabase
       .from('attendee_schedule')
       .select('event_id')
-      .eq('attendee_id', profile.id)
+      .eq('attendee_id', profileData.id)
 
     if (savedData) {
       setSavedEventIds(new Set(savedData.map(s => s.event_id)))
@@ -193,34 +199,35 @@ export default function HorariosPage() {
   }, {} as Record<string, Event[]>)
 
   if (loading) return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background }}>
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: colors.accent }}></div>
         <p className="text-sm text-gray-500">Cargando...</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+    <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
+      <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
         <div className="px-6 py-6">
           <div className="flex items-center gap-4 max-w-5xl mx-auto">
             <Link
               href="/asistente/inicio"
-              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all"
+              style={{ color: colors.header_text }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-white">Horarios</h1>
-              <p className="text-sm text-white/80 mt-0.5">Conferencias del congreso</p>
+              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>Horarios</h1>
+              <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>Conferencias del congreso</p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-violet-400"></div>
+        <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
       </div>
 
       <div className="px-6 py-6 max-w-5xl mx-auto">
@@ -236,9 +243,10 @@ export default function HorariosPage() {
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   selectedDay === 'all'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'text-white'
                     : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                 }`}
+                style={selectedDay === 'all' ? { backgroundColor: colors.accent } : {}}
               >
                 Todos
               </button>
@@ -251,9 +259,10 @@ export default function HorariosPage() {
                   }}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                     selectedDay === day
-                      ? 'bg-indigo-600 text-white'
+                      ? 'text-white'
                       : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                   }`}
+                  style={selectedDay === day ? { backgroundColor: colors.accent } : {}}
                 >
                   {day}
                 </button>
@@ -271,9 +280,10 @@ export default function HorariosPage() {
                 onClick={() => setSelectedRoom('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   selectedRoom === 'all'
-                    ? 'bg-purple-600 text-white'
+                    ? 'text-white'
                     : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                 }`}
+                style={selectedRoom === 'all' ? { backgroundColor: colors.accent } : {}}
               >
                 Todas
               </button>
@@ -283,9 +293,10 @@ export default function HorariosPage() {
                   onClick={() => setSelectedRoom(room)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                     selectedRoom === room
-                      ? 'bg-purple-600 text-white'
+                      ? 'text-white'
                       : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                   }`}
+                  style={selectedRoom === room ? { backgroundColor: colors.accent } : {}}
                 >
                   {room}
                 </button>
@@ -312,7 +323,7 @@ export default function HorariosPage() {
               <div key={roomName}>
                 {/* Nombre de sala */}
                 <div className="flex items-center gap-2 mb-3">
-                  <div className="w-2 h-2 rounded-full bg-indigo-600"></div>
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: colors.accent }}></div>
                   <h3 className="font-bold text-gray-900">{roomName}</h3>
                   <div className="text-xs text-gray-400">
                     {roomEvents.length} {roomEvents.length === 1 ? 'evento' : 'eventos'}
@@ -357,8 +368,9 @@ export default function HorariosPage() {
                           className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
                             isSaved
                               ? 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
-                              : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                              : 'text-white'
                           }`}
+                          style={!isSaved ? { backgroundColor: colors.accent } : {}}
                         >
                           {isSaved ? '✓ Agregado a Mi Horario' : '+ Agregar a Mi Horario'}
                         </button>

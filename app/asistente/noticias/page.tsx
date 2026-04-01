@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useTheme } from '@/hooks/useTheme'
 
 type News = {
   id: string
@@ -20,11 +21,15 @@ type News = {
 export default function NoticiasPage() {
   const router = useRouter()
   const supabase = createClient()
+  const [profile, setProfile] = useState<any>(null)
   const [news, setNews] = useState<News[]>([])
   const [selectedNews, setSelectedNews] = useState<News | null>(null)
   const [selectedDay, setSelectedDay] = useState<string>('all')
   const [days, setDays] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Cargar tema
+  const { colors } = useTheme(profile?.congress_id)
 
   useEffect(() => {
     load()
@@ -34,40 +39,44 @@ export default function NoticiasPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single()
 
-    if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
+    if (!profileData || profileData.role !== 'attendee') { router.push('/login'); return }
+
+    setProfile(profileData)
 
     // Cargar noticias del congreso
     const { data: newsData } = await supabase
       .from('news')
       .select('*')
-      .eq('congress_id', profile.congress_id)
+      .eq('congress_id', profileData.congress_id)
       .order('published_at', { ascending: false })
 
     if (!newsData) {
       setLoading(false)
       return
     }
-// Después de cargar noticias, marcar todas como vistas
-if (newsData && newsData.length > 0) {
-  const newsIds = newsData.map(n => n.id)
-  await supabase
-    .from('news_views')
-    .upsert(
-      newsIds.map(id => ({ attendee_id: profile.id, news_id: id })),
-      { onConflict: 'attendee_id,news_id', ignoreDuplicates: true }
-    )
-}
+
+    // Después de cargar noticias, marcar todas como vistas
+    if (newsData && newsData.length > 0) {
+      const newsIds = newsData.map(n => n.id)
+      await supabase
+        .from('news_views')
+        .upsert(
+          newsIds.map(id => ({ attendee_id: profileData.id, news_id: id })),
+          { onConflict: 'attendee_id,news_id', ignoreDuplicates: true }
+        )
+    }
+
     // Cargar datos del congreso
     const { data: congressData } = await supabase
       .from('congresses')
       .select('name, logo_url')
-      .eq('id', profile.congress_id)
+      .eq('id', profileData.congress_id)
       .single()
 
     // Cargar datos de stands
@@ -120,9 +129,9 @@ if (newsData && newsData.length > 0) {
       })
 
   if (loading) return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background }}>
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: colors.accent }}></div>
         <p className="text-sm text-gray-500">Cargando...</p>
       </div>
     </div>
@@ -131,25 +140,26 @@ if (newsData && newsData.length > 0) {
   // Vista de detalle
   if (selectedNews) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA]">
-        <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+      <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
+        <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
           <div className="px-6 py-6">
             <div className="flex items-center gap-4 max-w-5xl mx-auto">
               <button
                 onClick={() => setSelectedNews(null)}
-                className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+                className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all"
+                style={{ color: colors.header_text }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
               </button>
               <div>
-                <h1 className="text-xl font-bold text-white">Noticia</h1>
-                <p className="text-sm text-white/80 mt-0.5">{selectedNews.author_name}</p>
+                <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>Noticia</h1>
+                <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>{selectedNews.author_name}</p>
               </div>
             </div>
           </div>
-          <div className="h-1 bg-blue-400"></div>
+          <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
         </div>
 
         <div className="px-6 py-8 max-w-5xl mx-auto">
@@ -201,25 +211,26 @@ if (newsData && newsData.length > 0) {
 
   // Vista de lista
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+    <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
+      <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
         <div className="px-6 py-6">
           <div className="flex items-center gap-4 max-w-5xl mx-auto">
             <Link
               href="/asistente/inicio"
-              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all"
+              style={{ color: colors.header_text }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-white">Noticias</h1>
-              <p className="text-sm text-white/80 mt-0.5">Novedades del congreso</p>
+              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>Noticias</h1>
+              <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>Novedades del congreso</p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-blue-400"></div>
+        <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
       </div>
 
       <div className="px-6 py-6 max-w-5xl mx-auto">
@@ -232,9 +243,10 @@ if (newsData && newsData.length > 0) {
                 onClick={() => setSelectedDay('all')}
                 className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                   selectedDay === 'all'
-                    ? 'bg-blue-600 text-white'
+                    ? 'text-white'
                     : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                 }`}
+                style={selectedDay === 'all' ? { backgroundColor: colors.accent } : {}}
               >
                 Todas
               </button>
@@ -244,9 +256,10 @@ if (newsData && newsData.length > 0) {
                   onClick={() => setSelectedDay(day)}
                   className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
                     selectedDay === day
-                      ? 'bg-blue-600 text-white'
+                      ? 'text-white'
                       : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-300'
                   }`}
+                  style={selectedDay === day ? { backgroundColor: colors.accent } : {}}
                 >
                   {day}
                 </button>

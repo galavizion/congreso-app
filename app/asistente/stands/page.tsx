@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useTheme } from '@/hooks/useTheme'
 
 type Stand = {
   id: string
@@ -33,11 +34,15 @@ type News = {
 export default function AsistenteStandsPage() {
   const router = useRouter()
   const supabase = createClient()
+  const [profile, setProfile] = useState<any>(null)
   const [stands, setStands] = useState<Stand[]>([])
   const [selectedStand, setSelectedStand] = useState<Stand | null>(null)
   const [standNews, setStandNews] = useState<News[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingNews, setLoadingNews] = useState(false)
+
+  // Cargar tema
+  const { colors } = useTheme(profile?.congress_id)
 
   useEffect(() => {
     load()
@@ -47,19 +52,21 @@ export default function AsistenteStandsPage() {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) { router.push('/login'); return }
 
-    const { data: profile } = await supabase
+    const { data: profileData } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single()
 
-    if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
+    if (!profileData || profileData.role !== 'attendee') { router.push('/login'); return }
+
+    setProfile(profileData)
 
     // Cargar stands del congreso
     const { data: standsData } = await supabase
       .from('stands')
       .select('*')
-      .eq('congress_id', profile.congress_id)
+      .eq('congress_id', profileData.congress_id)
       .order('name', { ascending: true })
 
     setStands(standsData ?? [])
@@ -82,9 +89,9 @@ export default function AsistenteStandsPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background }}>
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: colors.accent }}></div>
         <p className="text-sm text-gray-500">Cargando...</p>
       </div>
     </div>
@@ -95,27 +102,28 @@ export default function AsistenteStandsPage() {
     const hasSocial = selectedStand.facebook || selectedStand.instagram || selectedStand.linkedin || selectedStand.tiktok
 
     return (
-      <div className="min-h-screen bg-[#FAFAFA]">
-        <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+      <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
+        <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
           <div className="px-6 py-6">
             <div className="flex items-center gap-4 max-w-5xl mx-auto">
               <button
                 onClick={() => setSelectedStand(null)}
-                className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+                className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all"
+                style={{ color: colors.header_text }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M19 12H5M12 19l-7-7 7-7"/>
                 </svg>
               </button>
               <div>
-                <h1 className="text-xl font-bold text-white">{selectedStand.name}</h1>
+                <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>{selectedStand.name}</h1>
                 {selectedStand.booth_number && (
-                  <p className="text-sm text-white/80 mt-0.5">Stand #{selectedStand.booth_number}</p>
+                  <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>Stand #{selectedStand.booth_number}</p>
                 )}
               </div>
             </div>
           </div>
-          <div className="h-1 bg-cyan-400"></div>
+          <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
         </div>
 
         <div className="px-6 py-8 max-w-5xl mx-auto">
@@ -155,7 +163,8 @@ export default function AsistenteStandsPage() {
                   href={selectedStand.website}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-indigo-600 hover:text-indigo-700"
+                  className="flex items-center gap-2 text-sm hover:underline"
+                  style={{ color: colors.accent }}
                 >
                   <span>🌐</span>
                   <span>{selectedStand.website}</span>
@@ -249,7 +258,7 @@ export default function AsistenteStandsPage() {
             
             {loadingNews ? (
               <div className="bg-white rounded-xl p-12 text-center border border-gray-100 shadow-sm">
-                <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin mx-auto"></div>
+                <div className="w-10 h-10 border-3 border-gray-200 rounded-full animate-spin mx-auto" style={{ borderTopColor: colors.accent }}></div>
               </div>
             ) : standNews.length === 0 ? (
               <div className="bg-white rounded-xl p-12 text-center border border-gray-100 shadow-sm">
@@ -298,25 +307,26 @@ export default function AsistenteStandsPage() {
 
   // Vista de grid
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+    <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
+      <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
         <div className="px-6 py-6">
           <div className="flex items-center gap-4 max-w-5xl mx-auto">
             <Link
               href="/asistente/inicio"
-              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all"
+              style={{ color: colors.header_text }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-white">Stands</h1>
-              <p className="text-sm text-white/80 mt-0.5">Descubre los expositores</p>
+              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>Stands</h1>
+              <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>Descubre los expositores</p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-cyan-400"></div>
+        <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
       </div>
 
       <div className="px-6 py-8 max-w-5xl mx-auto">

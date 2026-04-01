@@ -4,11 +4,13 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { useTheme } from '@/hooks/useTheme'
 import jsQR from 'jsqr'
 
 export default function EscanearPage() {
   const router = useRouter()
   const supabase = createClient()
+  const [profile, setProfile] = useState<any>(null)
   const [attendeeId, setAttendeeId] = useState<string | null>(null)
   const [congressId, setCongressId] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
@@ -18,21 +20,25 @@ export default function EscanearPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
 
+  // Cargar tema
+  const { colors } = useTheme(profile?.congress_id)
+
   useEffect(() => {
     async function load() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/login'); return }
 
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single()
 
-      if (!profile || profile.role !== 'attendee') { router.push('/login'); return }
+      if (!profileData || profileData.role !== 'attendee') { router.push('/login'); return }
 
-      setAttendeeId(profile.id)
-      setCongressId(profile.congress_id)
+      setProfile(profileData)
+      setAttendeeId(profileData.id)
+      setCongressId(profileData.congress_id)
       setLoading(false)
     }
     load()
@@ -195,7 +201,7 @@ export default function EscanearPage() {
         return
       }
 
-      // Puntos a otorgar (puedes hacerlo configurable)
+      // Puntos a otorgar
       const pointsToAward = 10
 
       // Crear lead
@@ -213,7 +219,7 @@ export default function EscanearPage() {
       }
 
       // Sumar puntos al perfil
-      const { data: profile } = await supabase
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('points')
         .eq('id', attendeeId)
@@ -221,7 +227,7 @@ export default function EscanearPage() {
 
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ points: (profile?.points ?? 0) + pointsToAward })
+        .update({ points: (profileData?.points ?? 0) + pointsToAward })
         .eq('id', attendeeId)
 
       if (updateError) {
@@ -241,42 +247,36 @@ export default function EscanearPage() {
     }
   }
 
-  // Función para probar sin cámara (desarrollo)
-  async function testScan() {
-    // Aquí puedes poner un stand_id real para probar
-    const testStandId = 'd4ba4c3f-a636-4461-b196-1c2d0522b016' // Reemplaza con un ID real
-    await processQR(testStandId)
-  }
-
   if (loading) return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: colors.background }}>
       <div className="flex flex-col items-center gap-3">
-        <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-3 border-gray-200 rounded-full animate-spin" style={{ borderTopColor: colors.accent }}></div>
         <p className="text-sm text-gray-500">Cargando...</p>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA]">
-      <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
+    <div className="min-h-screen" style={{ backgroundColor: colors.background }}>
+      <div style={{ background: `linear-gradient(to right, ${colors.header_from}, ${colors.header_to})` }}>
         <div className="px-6 py-6">
           <div className="flex items-center gap-4 max-w-5xl mx-auto">
             <Link
               href="/asistente/inicio"
-              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center text-white hover:bg-white/30 transition-all"
+              className="w-9 h-9 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-all"
+              style={{ color: colors.header_text }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <path d="M19 12H5M12 19l-7-7 7-7"/>
               </svg>
             </Link>
             <div>
-              <h1 className="text-xl font-bold text-white">Escanear QR</h1>
-              <p className="text-sm text-white/80 mt-0.5">Visita stands y gana puntos</p>
+              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>Escanear QR</h1>
+              <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>Visita stands y gana puntos</p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-indigo-400"></div>
+        <div className="h-1" style={{ backgroundColor: colors.divider_color }}></div>
       </div>
 
       <div className="px-6 py-8 max-w-5xl mx-auto">
@@ -352,7 +352,7 @@ export default function EscanearPage() {
               </div>
             ) : (
               <div className="p-12 text-center">
-                <div className="w-24 h-24 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-6">
+                <div className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6" style={{ backgroundColor: `${colors.accent}15` }}>
                   <span className="text-5xl">📱</span>
                 </div>
                 <h3 className="text-xl font-bold text-gray-900 mb-3">Escanea el QR del stand</h3>
@@ -361,18 +361,11 @@ export default function EscanearPage() {
                 </p>
                 <button
                   onClick={startCamera}
-                  className="w-full bg-indigo-600 text-white font-semibold px-6 py-4 rounded-lg hover:bg-indigo-700 transition-colors mb-4"
+                  className="w-full text-white font-semibold px-6 py-4 rounded-lg transition-colors mb-4"
+                  style={{ backgroundColor: colors.accent }}
                 >
                   Abrir cámara
                 </button>
-
-                {/* Botón de prueba (solo desarrollo) */}
-             {/*    <button
-                  onClick={testScan}
-                  className="w-full bg-gray-100 text-gray-700 font-medium px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors text-sm"
-                >
-                  🧪 Probar sin cámara (desarrollo)
-                </button> */}
               </div>
             )}
           </div>
