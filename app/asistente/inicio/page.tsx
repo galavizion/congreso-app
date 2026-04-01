@@ -10,6 +10,7 @@ export default function AsistenteDashboardPage() {
   const router = useRouter()
   const supabase = createClient()
   const [profile, setProfile] = useState<any>(null)
+  const [congressName, setCongressName] = useState<string>('')
   const [totalPoints, setTotalPoints] = useState(0)
   const [leadsCount, setLeadsCount] = useState(0)
   const [newsCount, setNewsCount] = useState(0)
@@ -33,6 +34,17 @@ export default function AsistenteDashboardPage() {
 
       setProfile(profileData)
       setTotalPoints(profileData?.points ?? 0)
+
+      // Cargar nombre del congreso
+      const { data: congress } = await supabase
+        .from('congresses')
+        .select('name')
+        .eq('id', profileData.congress_id)
+        .single()
+
+      if (congress) {
+        setCongressName(congress.name)
+      }
 
       // Count de leads (stands visitados)
       const { count: leadsCount } = await supabase
@@ -82,7 +94,9 @@ export default function AsistenteDashboardPage() {
         <div className="px-6 py-6">
           <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div>
-              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>WinWin</h1>
+              <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>
+                {congressName || 'WinWin'}
+              </h1>
               <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>
                 Hola, {profile?.name?.split(' ')[0] || 'Asistente'} 👋
               </p>
