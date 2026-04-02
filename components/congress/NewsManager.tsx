@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useImageCompression } from '@/hooks/useImageCompression'
+import Image from 'next/image'
 
 type News = {
   id: string
@@ -20,10 +22,20 @@ type NewsManagerProps = {
   canEdit?: boolean
 }
 
+interface PostLimit {
+  can_post: boolean
+  posts_today: number
+  remaining: number
+  limit: number
+}
+
 export default function NewsManager({ congressId, standId, canEdit = false }: NewsManagerProps) {
   const supabase = createClient()
+  const { compressImage, isCompressing } = useImageCompression()
+  
   const [news, setNews] = useState<News[]>([])
   const [loading, setLoading] = useState(true)
+  const [postLimit, setPostLimit] = useState<PostLimit | null>(null)
   
   // Form state
   const [showForm, setShowForm] = useState(false)
@@ -32,6 +44,8 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [error, setError] = useState('')
   
   // Edit state
   const [editingNews, setEditingNews] = useState<News | null>(null)
@@ -45,7 +59,26 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
 
   useEffect(() => {
     loadNews()
+    if (canEdit && standId) {
+      checkPostLimit()
+    }
   }, [congressId, standId])
+
+  async function checkPostLimit() {
+    if (!standId) return
+    
+    try {
+      const response = await fetch('/api/check-post-limit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stand_id: standId }),
+      })
+      const data = await response.json()
+      setPostLimit(data)
+    } catch (err) {
+      console.error('Error al verificar límite:', err)
+    }
+  }
 
   async function loadNews() {
     setLoading(true)
@@ -104,40 +137,84 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
     setLoading(false)
   }
 
-  function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleImageSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
 
-    setImageFile(file)
-
-    // Preview
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      setImagePreview(reader.result as string)
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+      setError('Solo se permiten imágenes')
+      return
     }
-    reader.readAsDataURL(file)
+
+    // Validar tamaño máximo 4MB antes de comprimir
+    const maxSize = 4 * 1024 * 1024
+    if (file.size > maxSize * 2) {
+      setError('La imagen es demasiado grande. Máximo 4MB.')
+      return
+    }
+
+    setError('')
+
+    try {
+      // Comprimir imagen
+      const compressed = await compressImage(file, {
+        maxSizeMB: 4,
+        maxWidthOrHeight: 1920,
+        quality: 0.8,
+      })
+
+      // Verificar tamaño después de comprimir
+      if (compressed.size > maxSize) {
+        setError('La imagen sigue siendo muy grande después de comprimir.')
+        return
+      }
+
+      setImageFile(compressed)
+
+      // Preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(compressed)
+    } catch (err) {
+      setError('Error al procesar la imagen')
+      console.error(err)
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    
+    if (!title.trim() || !content.trim()) {
+      setError('Completa todos los campos')
+      return
+    }
+
     setCreating(true)
+    setError('')
+    setUploadProgress(0)
 
     try {
       let imageUrl = editingNews?.image_url || null
 
       // Upload imagen si hay una nueva
       if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop()
-        const fileName = `${congressId}-${Date.now()}.${fileExt}`
+        setUploadProgress(30)
+
+        const fileName = `news-${Date.now()}.jpg`
         
         const { error: uploadError } = await supabase.storage
           .from('news_images')
           .upload(fileName, imageFile, {
-            cacheControl: '3600',
+            contentType: 'image/jpeg',
             upsert: false
           })
 
         if (uploadError) throw uploadError
+
+        setUploadProgress(60)
 
         const { data: { publicUrl } } = supabase.storage
           .from('news_images')
@@ -154,6 +231,8 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
               .remove([oldPath])
           }
         }
+
+        setUploadProgress(80)
       }
 
       // Crear o actualizar noticia
@@ -182,6 +261,8 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
         if (error) throw error
       }
 
+      setUploadProgress(100)
+
       // Reset form
       setTitle('')
       setContent('')
@@ -190,11 +271,13 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
       setShowForm(false)
       setEditingNews(null)
       loadNews()
+      if (standId) checkPostLimit()
     } catch (err: any) {
-      alert('Error: ' + err.message)
+      setError('Error: ' + err.message)
     }
 
     setCreating(false)
+    setUploadProgress(0)
   }
 
   function openEditForm(newsItem: News) {
@@ -211,6 +294,13 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
     setEditingNews(null)
     setTitle('')
     setContent('')
+    setImageFile(null)
+    setImagePreview(null)
+    setError('')
+    setUploadProgress(0)
+  }
+
+  function removeImage() {
     setImageFile(null)
     setImagePreview(null)
   }
@@ -241,6 +331,7 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
 
       setDeletingNews(null)
       loadNews()
+      if (standId) checkPostLimit()
     } catch (err: any) {
       alert('Error: ' + err.message)
     }
@@ -260,7 +351,6 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
   if (viewingNews) {
     return (
       <div className="space-y-4">
-        {/* Header */}
         <button
           onClick={() => setViewingNews(null)}
           className="text-indigo-600 hover:text-indigo-700 text-sm font-medium"
@@ -268,9 +358,7 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
           ← Volver a noticias
         </button>
 
-        {/* Contenido */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-          {/* Imagen */}
           {viewingNews.image_url && (
             <img 
               src={viewingNews.image_url} 
@@ -279,9 +367,7 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
             />
           )}
 
-          {/* Contenido */}
           <div className="p-4">
-            {/* Autor */}
             <div className="flex items-center gap-2 mb-3">
               {viewingNews.author_logo ? (
                 <img 
@@ -318,7 +404,6 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
             </div>
           </div>
 
-          {/* Botones de edición */}
           {canEdit && (
             <div className="p-4 border-t border-gray-100 flex gap-2">
               <button
@@ -346,10 +431,45 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
     )
   }
 
+  const canCreatePost = !postLimit || postLimit.can_post
+
   return (
     <div className="space-y-4">
+      {/* Header con contador */}
+      {canEdit && postLimit && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-900">Publicaciones de hoy</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              {postLimit.remaining > 0 
+                ? `Te quedan ${postLimit.remaining} disponibles`
+                : 'Límite alcanzado, vuelve mañana'
+              }
+            </p>
+          </div>
+          <div className="text-3xl font-bold text-indigo-600">
+            {postLimit.posts_today}/{postLimit.limit}
+          </div>
+        </div>
+      )}
+
+      {/* Límite alcanzado */}
+      {canEdit && postLimit && !canCreatePost && !showForm && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div>
+              <p className="font-semibold text-amber-900">Límite diario alcanzado</p>
+              <p className="text-sm text-amber-700 mt-1">
+                Has publicado {postLimit.posts_today} noticias hoy. El límite es {postLimit.limit} publicaciones por día.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Botón agregar */}
-      {canEdit && !showForm && (
+      {canEdit && !showForm && canCreatePost && (
         <button
           onClick={() => setShowForm(true)}
           className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 font-medium"
@@ -365,48 +485,8 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
             {editingNews ? 'Editar Noticia' : 'Nueva Noticia'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-3">
-            {/* Preview de imagen */}
-            {imagePreview && (
-              <div className="relative">
-                <img 
-                  src={imagePreview} 
-                  alt="Preview"
-                  className="w-full h-48 object-cover rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setImageFile(null)
-                    setImagePreview(null)
-                  }}
-                  className="absolute top-2 right-2 bg-red-600 text-white w-8 h-8 rounded-full hover:bg-red-700"
-                >
-                  ✕
-                </button>
-              </div>
-            )}
-
-            {/* Upload imagen */}
-            {!imagePreview && (
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Imagen
-                </label>
-                <label className="block w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-                  <div className="text-gray-500 text-sm">
-                    <div className="text-2xl mb-2">📷</div>
-                    Toca para subir imagen
-                  </div>
-                </label>
-              </div>
-            )}
-
+            
+            {/* Título */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Título *
@@ -421,6 +501,7 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
               />
             </div>
 
+            {/* Contenido */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Contenido *
@@ -428,20 +509,89 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400"
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-indigo-400 resize-none"
                 rows={6}
                 required
                 placeholder="Escribe el contenido de la noticia..."
               />
             </div>
 
+            {/* Upload de imagen */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Imagen (opcional)
+                <span className="text-gray-400 ml-1">Máx. 4 MB</span>
+              </label>
+              
+              {!imagePreview ? (
+                <label className="block w-full border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-indigo-400 transition-colors">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <div className="text-gray-500 text-sm">
+                    <div className="text-2xl mb-2">
+                      {isCompressing ? '⏳' : '📷'}
+                    </div>
+                    {isCompressing ? 'Comprimiendo...' : 'Toca para subir imagen'}
+                  </div>
+                </label>
+              ) : (
+                <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                  <Image
+                    src={imagePreview}
+                    alt="Preview"
+                    width={800}
+                    height={400}
+                    className="w-full h-auto object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={removeImage}
+                    className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-2 hover:bg-red-600"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  {imageFile && (
+                    <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+                      {(imageFile.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Barra de progreso */}
+            {uploadProgress > 0 && uploadProgress < 100 && (
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between text-xs text-gray-600">
+                  <span>Subiendo...</span>
+                  <span>{uploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-indigo-600 h-2 transition-all duration-300 rounded-full"
+                    style={{ width: `${uploadProgress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+
+            {error && (
+              <p className="text-red-500 text-sm">{error}</p>
+            )}
+
             <div className="flex gap-2 pt-2">
               <button
                 type="submit"
-                disabled={creating}
+                disabled={creating || isCompressing}
                 className="flex-1 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 font-medium disabled:opacity-50 text-sm"
               >
-                {creating ? 'Guardando...' : editingNews ? 'Guardar' : 'Publicar'}
+                {creating ? 'Guardando...' : isCompressing ? 'Comprimiendo...' : editingNews ? 'Guardar' : 'Publicar'}
               </button>
               <button
                 type="button"
@@ -471,7 +621,6 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
               key={newsItem.id}
               className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden"
             >
-              {/* Imagen */}
               {newsItem.image_url && (
                 <div 
                   onClick={() => !canEdit && setViewingNews(newsItem)}
@@ -485,13 +634,11 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
                 </div>
               )}
 
-              {/* Contenido */}
               <div className="p-4">
                 <div 
                   onClick={() => !canEdit && setViewingNews(newsItem)}
                   className={!canEdit ? 'cursor-pointer' : ''}
                 >
-                  {/* Autor */}
                   <div className="flex items-center gap-2 mb-2">
                     {newsItem.author_logo ? (
                       <img 
@@ -526,7 +673,6 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
                   </p>
                 </div>
 
-                {/* Botón leer más para usuarios sin edición */}
                 {!canEdit && (
                   <button
                     onClick={() => setViewingNews(newsItem)}
@@ -536,7 +682,6 @@ export default function NewsManager({ congressId, standId, canEdit = false }: Ne
                   </button>
                 )}
 
-                {/* Botones de edición */}
                 {canEdit && (
                   <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
                     <button
