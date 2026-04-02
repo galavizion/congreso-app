@@ -228,7 +228,9 @@ export default function AsistenteDashboardPage() {
       </div>
 
       {/* ChatBot flotante - solo se muestra cuando hay congress_id */}
-      {profile?.congress_id && <ChatBot congressId={profile.congress_id} />}
+      {profile?.congress_id && (
+        <ChatBot congressId={profile.congress_id} userPoints={totalPoints} />
+      )}
     </div>
   )
 }

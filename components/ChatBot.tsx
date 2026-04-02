@@ -10,9 +10,10 @@ interface Message {
 
 interface ChatBotProps {
   congressId: string;
+  userPoints: number;
 }
 
-export default function ChatBot({ congressId }: ChatBotProps) {
+export default function ChatBot({ congressId, userPoints }: ChatBotProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -39,6 +40,7 @@ export default function ChatBot({ congressId }: ChatBotProps) {
         body: JSON.stringify({
           message: text,
           congress_id: congressId,
+          user_points: userPoints,
         }),
       });
 

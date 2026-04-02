@@ -8,7 +8,7 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   try {
-    const { message, congress_id } = await req.json();
+    const { message, congress_id, user_points = 0 } = await req.json();
 
     if (!message || !congress_id) {
       return NextResponse.json(
@@ -48,7 +48,7 @@ export async function POST(req: Request) {
           .from("gifts")
           .select("*")
           .eq("congress_id", congress_id)
-          .order("points_required", { ascending: true }),
+          .order("points_cost", { ascending: true }),
       ]);
 
     const congress = congressResult.data;
@@ -84,12 +84,12 @@ export async function POST(req: Request) {
     const giftsText =
       gifts.length > 0
         ? gifts
-            .map(
-              (g) =>
-                `- ${g.name} (${g.points_required} puntos)${
-                  g.stock !== null ? ` - Stock: ${g.stock}` : ""
-                }`
-            )
+            .map((g) => {
+              const canRedeem = user_points >= g.points_cost;
+              const stockInfo = g.stock !== null ? ` - Stock: ${g.stock}` : "";
+              const redeemStatus = canRedeem ? " ✅ Puedes canjearlo" : " ⏳ Necesitas más puntos";
+              return `- ${g.name} (${g.points_cost} puntos)${stockInfo}${redeemStatus}`;
+            })
             .join("\n")
         : "No hay regalos disponibles aún.";
 
@@ -100,6 +100,8 @@ export async function POST(req: Request) {
         {
           role: "system",
           content: `Eres el asistente virtual del congreso "${congress.name}".
+
+El usuario tiene actualmente ${user_points} puntos acumulados.
 
 Tu trabajo es ayudar a los asistentes a encontrar información sobre:
 - Horarios de actividades
@@ -116,14 +118,20 @@ ${standsText}
 REGALOS DISPONIBLES:
 ${giftsText}
 
-INSTRUCCIONES:
+INSTRUCCIONES IMPORTANTES:
 - Responde de forma breve, amigable y directa en español
-- Si preguntan por un horario específico, menciona fecha, hora y ubicación
-- Si preguntan por un stand, da su nombre y descripción
-- Si preguntan por regalos, menciona nombre y puntos requeridos
+- Si preguntan por horarios, menciona fecha, hora y ubicación
+- Si preguntan por stands, da su nombre y descripción
+
+INSTRUCCIONES PARA REGALOS:
+- Cuando pregunten por regalos, primero menciona cuáles PUEDE canjear YA (los que tienen ✅)
+- Si NO puede canjear ninguno aún, dile: "Aún no tienes suficientes puntos para canjear regalos. Te animamos a escanear más stands y asistir a ponencias para ganar puntos. Los regalos disponibles son: [lista con puntos necesarios]"
+- Si PUEDE canjear algunos, dile: "Con tus ${user_points} puntos puedes canjear: [lista solo los que tienen ✅]. También hay otros regalos que podrás desbloquear ganando más puntos: [lista los que tienen ⏳]"
+- Motívalo a ganar más puntos escaneando stands (10 puntos por stand)
+
 - Si no sabes algo o no está en la información, sugiere que contacten al organizador
 - NO inventes información que no esté en los datos proporcionados
-- Usa emojis ocasionalmente para ser más amigable (📅 🏢 🎁)`,
+- Usa emojis ocasionalmente para ser más amigable (📅 🏢 🎁 🔥)`,
         },
         {
           role: "user",
