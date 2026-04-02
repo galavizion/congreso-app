@@ -63,16 +63,58 @@ export async function POST(req: Request) {
       );
     }
 
+    // Obtener fecha y hora actual en zona horaria de México
+    const now = new Date();
+    const mexicoTime = new Intl.DateTimeFormat('es-MX', {
+      timeZone: 'America/Mexico_City',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    }).format(now);
+
+    // Clasificar horarios por estado temporal
+    const schedulesWithStatus = schedules.map(s => {
+      const scheduleDateTime = new Date(`${s.date}T${s.time}`);
+      const currentDateTime = new Date();
+      
+      let status = 'futuro';
+      if (scheduleDateTime < currentDateTime) {
+        status = 'pasado';
+      } else if (scheduleDateTime.toDateString() === currentDateTime.toDateString()) {
+        const scheduleMins = scheduleDateTime.getHours() * 60 + scheduleDateTime.getMinutes();
+        const currentMins = currentDateTime.getHours() * 60 + currentDateTime.getMinutes();
+        if (Math.abs(scheduleMins - currentMins) <= 60) {
+          status = 'en_curso';
+        }
+      }
+      
+      return { ...s, status };
+    });
+
+    const pastSchedules = schedulesWithStatus.filter(s => s.status === 'pasado');
+    const currentSchedules = schedulesWithStatus.filter(s => s.status === 'en_curso');
+    const futureSchedules = schedulesWithStatus.filter(s => s.status === 'futuro');
+
     // Formatear datos para el contexto del bot
-    const schedulesText =
-      schedules.length > 0
-        ? schedules
-            .map(
-              (s) =>
-                `- ${s.date} a las ${s.time}: "${s.title}" en ${s.location}`
-            )
-            .join("\n")
-        : "No hay horarios registrados aún.";
+    const currentSchedulesText = currentSchedules.length > 0
+      ? currentSchedules.map(s => `- 🔴 EN VIVO AHORA: "${s.title}" en ${s.location}`).join("\n")
+      : "";
+
+    const futureSchedulesText = futureSchedules.length > 0
+      ? futureSchedules.map(s => `- ${s.date} a las ${s.time}: "${s.title}" en ${s.location}`).join("\n")
+      : "";
+
+    const pastSchedulesText = pastSchedules.length > 0
+      ? pastSchedules.map(s => `- ✅ YA PASÓ: "${s.title}" fue el ${s.date} a las ${s.time} en ${s.location}`).join("\n")
+      : "";
+
+    const schedulesText = 
+      (currentSchedulesText ? currentSchedulesText + "\n\n" : "") +
+      (futureSchedulesText ? "PRÓXIMOS EVENTOS:\n" + futureSchedulesText : "No hay horarios futuros.") +
+      (pastSchedulesText ? "\n\nEVENTOS PASADOS:\n" + pastSchedulesText : "");
 
     const standsText =
       stands.length > 0
@@ -101,10 +143,12 @@ export async function POST(req: Request) {
           role: "system",
           content: `Eres el asistente virtual del congreso "${congress.name}".
 
+FECHA Y HORA ACTUAL: ${mexicoTime} (Ciudad de México)
+
 El usuario tiene actualmente ${user_points} puntos acumulados.
 
 Tu trabajo es ayudar a los asistentes a encontrar información sobre:
-- Horarios de actividades
+- Horarios de actividades (pasadas, en curso y futuras)
 - Ubicación y descripción de stands
 - Regalos canjeables y puntos necesarios
 - Información general del evento
@@ -120,8 +164,14 @@ ${giftsText}
 
 INSTRUCCIONES IMPORTANTES:
 - Responde de forma breve, amigable y directa en español
-- Si preguntan por horarios, menciona fecha, hora y ubicación
 - Si preguntan por stands, da su nombre y descripción
+
+INSTRUCCIONES PARA HORARIOS:
+- Si preguntan por un evento específico (por doctor, tema, etc.), busca en TODOS los horarios (pasados, en curso y futuros)
+- Si el evento YA PASÓ (marcado con ✅), dile claramente: "La ponencia de [nombre] fue el [fecha] a las [hora] en [ubicación]"
+- Si el evento ESTÁ EN CURSO (marcado con 🔴), dile: "¡La ponencia de [nombre] está sucediendo AHORA en [ubicación]!"
+- Si el evento es FUTURO, dile: "La ponencia de [nombre] será el [fecha] a las [hora] en [ubicación]"
+- Si preguntan "¿qué hay hoy?" o "¿qué hay ahora?", prioriza eventos en curso y próximos del día actual
 
 INSTRUCCIONES PARA REGALOS:
 - Cuando pregunten por regalos, primero menciona cuáles PUEDE canjear YA (los que tienen ✅)
@@ -131,7 +181,7 @@ INSTRUCCIONES PARA REGALOS:
 
 - Si no sabes algo o no está en la información, sugiere que contacten al organizador
 - NO inventes información que no esté en los datos proporcionados
-- Usa emojis ocasionalmente para ser más amigable (📅 🏢 🎁 🔥)`,
+- Usa emojis ocasionalmente para ser más amigable (📅 🏢 🎁 🔥 ⏰)`,
         },
         {
           role: "user",
