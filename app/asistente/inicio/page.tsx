@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useTheme } from '@/hooks/useTheme'
+import ChatBot from "@/components/ChatBot"
+
 
 export default function AsistenteDashboardPage() {
   const router = useRouter()
@@ -224,6 +226,9 @@ export default function AsistenteDashboardPage() {
         </Link>
 
       </div>
+
+      {/* ChatBot flotante - solo se muestra cuando hay congress_id */}
+      {profile?.congress_id && <ChatBot congressId={profile.congress_id} />}
     </div>
   )
 }
