@@ -24,3 +24,46 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* ========================================
+   ESTILOS GLOBALES PARA INPUTS
+   Mejora de contraste en toda la app
+   ======================================== */
+
+/* Todos los inputs de texto, textarea, select */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="number"],
+input[type="tel"],
+input[type="url"],
+input[type="search"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+textarea,
+select {
+  color: #111827 !important; /* text-gray-900 - texto ingresado negro */
+}
+
+/* Placeholders más visibles */
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af !important; /* text-gray-400 - placeholder gris medio */
+  opacity: 1 !important;
+}
+
+/* Firefox fix */
+input::-moz-placeholder,
+textarea::-moz-placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+/* Inputs deshabilitados más claros */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  color: #6b7280 !important; /* text-gray-500 */
+  opacity: 0.6;
+}
