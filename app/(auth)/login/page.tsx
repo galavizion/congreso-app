@@ -1,14 +1,35 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
 export default function LoginPage() {
   const supabase = createClient()
+  const searchParams = useSearchParams()
+  const congressId = searchParams.get('congress')
+  
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [congressData, setCongressData] = useState<any>(null)
+
+  // Cargar datos del congreso si viene desde un QR
+  useEffect(() => {
+    async function loadCongress() {
+      if (!congressId) return
+      
+      const { data } = await supabase
+        .from('congresses')
+        .select('name, logo_url')
+        .eq('id', congressId)
+        .single()
+      
+      if (data) setCongressData(data)
+    }
+    loadCongress()
+  }, [congressId])
 
   async function handleLogin() {
     setLoading(true)
@@ -26,40 +47,52 @@ export default function LoginPage() {
     }
 
     const { data: profile } = await supabase
-  .from('profiles')
-  .select('role')
-  .eq('id', data.user.id)
-  .single()
+      .from('profiles')
+      .select('role')
+      .eq('id', data.user.id)
+      .single()
 
-console.log('👤 Profile encontrado:', profile) // ← AGREGAR ESTO
-console.log('🎯 Rol:', profile?.role)        
+    console.log('👤 Profile encontrado:', profile)
+    console.log('🎯 Rol:', profile?.role)        
 
-if (!profile) {
-  setError('No se encontró el perfil')
-  setLoading(false)
-  return
-}
+    if (!profile) {
+      setError('No se encontró el perfil')
+      setLoading(false)
+      return
+    }
 
-const routes: Record<string, string> = {
-  god: '/god-admin/dashboard',
-  god_admin: '/god-admin/dashboard',
-  congress: '/congress/dashboard',
-  stand: '/stand/dashboard',
-  attendee: '/asistente/inicio',
-  store: '/store/dashboard'  // ← NUEVO
-}
+    const routes: Record<string, string> = {
+      god: '/god-admin/dashboard',
+      god_admin: '/god-admin/dashboard',
+      congress: '/congress/dashboard',
+      stand: '/stand/dashboard',
+      attendee: '/asistente/inicio',
+      store: '/store/dashboard'
+    }
 
-// Esperar a que Supabase guarde la sesión
-await supabase.auth.getSession()
+    // Esperar a que Supabase guarde la sesión
+    await supabase.auth.getSession()
 
-window.location.href = routes[profile.role] ?? '/login'
+    window.location.href = routes[profile.role] ?? '/login'
   }
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">WinWin</h1>
+          {/* Logo del congreso si viene desde QR */}
+          {congressData?.logo_url && (
+            <img 
+              src={congressData.logo_url} 
+              alt={congressData.name}
+              className="h-20 mx-auto mb-4 object-contain"
+            />
+          )}
+          
+          {/* Nombre del congreso o "Incentiva" */}
+          <h1 className="text-3xl font-bold text-gray-900">
+            {congressData?.name || 'Incentiva'}
+          </h1>
           <p className="text-gray-500 text-sm mt-1">Inicia sesión para continuar</p>
         </div>
 

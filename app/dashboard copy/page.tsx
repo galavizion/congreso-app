@@ -16,7 +16,7 @@ export default async function DashboardPage() {
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 py-4 flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">WinWin</h1>
+          <h1 className="text-xl font-bold text-gray-900">Incentiva</h1>
           <p className="text-xs text-gray-400">God Admin</p>
         </div>
         <div className="flex items-center gap-3">

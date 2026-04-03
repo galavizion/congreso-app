@@ -23,7 +23,7 @@ export default async function StandDashboardPage() {
 
       {/* Header */}
       <div className="bg-white border-b border-gray-100 px-4 py-4">
-        <h1 className="text-xl font-bold text-gray-900">WinWin</h1>
+        <h1 className="text-xl font-bold text-gray-900">Incentiva</h1>
         <p className="text-sm text-gray-400 mt-0.5">{stand?.name ?? 'Mi stand'}</p>
       </div>
 

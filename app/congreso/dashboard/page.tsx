@@ -55,7 +55,7 @@ export default function CongresoDashboardPage() {
         <div className="px-6 py-6">
           <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div>
-              <h1 className="text-xl font-bold text-white">WinWin</h1>
+              <h1 className="text-xl font-bold text-white">{congress?.name || 'Incentiva'}</h1>
               <p className="text-sm text-white/80 mt-0.5">{congress?.name ?? 'Mi congreso'}</p>
             </div>
             <LogoutButton />

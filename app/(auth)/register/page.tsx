@@ -67,7 +67,7 @@ function RegisterForm() {
       <div className="w-full max-w-sm">
 
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">WinWin</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Incentiva</h1>
           <p className="text-gray-500 text-sm mt-1">Crea tu cuenta para ganar puntos</p>
         </div>
 

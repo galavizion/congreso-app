@@ -514,7 +514,7 @@ async function loadRedemptions() {
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Ej. Taza WinWin"
+                    placeholder="Ej. Taza "
                     className="w-full border border-gray-200 rounded-lg px-4 py-2 outline-none focus:border-indigo-400"
                     required
                   />

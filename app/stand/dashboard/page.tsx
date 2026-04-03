@@ -18,7 +18,7 @@ export default function StandDashboardPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('*')
+        .select('*, congresses(name)')
         .eq('id', session.user.id)
         .single()
 
@@ -26,7 +26,7 @@ export default function StandDashboardPage() {
 
       const { data: standData } = await supabase
         .from('stands')
-        .select('*')
+        .select('*, congresses(name)')
         .eq('id', profile.stand_id)
         .single()
 
@@ -51,7 +51,7 @@ export default function StandDashboardPage() {
         <div className="px-6 py-6">
           <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div>
-              <h1 className="text-xl font-bold text-white">WinWin</h1>
+              <h1 className="text-xl font-bold text-white">{stand?.congresses?.name || 'Incentiva'}</h1>
               <p className="text-sm text-white/80 mt-0.5">{stand?.name ?? 'Mi stand'}</p>
             </div>
           </div>

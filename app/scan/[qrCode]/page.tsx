@@ -23,7 +23,7 @@ export default async function ScanPage({
 
   // Si no hay sesión, mandar a registro con el QR en la URL
   if (!user) {
-    redirect(`/register?qr=${qrCode}`)
+    redirect(`/login?qr=${qrCode}&congress=${stand.congress_id}`)
   }
 
   // Si ya tiene sesión, procesar el escaneo directamente
@@ -34,7 +34,7 @@ export default async function ScanPage({
     .single()
 
   if (!profile || profile.role !== 'attendee') {
-    redirect(`/register?qr=${qrCode}`)
+    redirect(`/login?qr=${qrCode}&congress=${stand.congress_id}`)
   }
 
   // Verificar si ya escaneó este stand
@@ -78,4 +78,3 @@ export default async function ScanPage({
   // Redirigir al inicio del asistente
   redirect('/asistente/inicio')
 }
- 

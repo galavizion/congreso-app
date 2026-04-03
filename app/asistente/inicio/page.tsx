@@ -97,7 +97,7 @@ export default function AsistenteDashboardPage() {
           <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div>
               <h1 className="text-xl font-bold" style={{ color: colors.header_text }}>
-                {congressName || 'WinWin'}
+              {congressName || 'Incentiva'}
               </h1>
               <p className="text-sm mt-0.5" style={{ color: colors.header_text, opacity: 0.8 }}>
                 Hola, {profile?.name?.split(' ')[0] || 'Asistente'} 👋
