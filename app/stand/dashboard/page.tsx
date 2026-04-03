@@ -13,25 +13,57 @@ export default function StandDashboardPage() {
 
   useEffect(() => {
     async function load() {
+      console.log('🔍 Stand Dashboard - Iniciando carga...')
+      
       const { data: { session } } = await supabase.auth.getSession()
-      if (!session) { router.push('/login'); return }
+      console.log('📝 Sesión:', session ? 'Existe' : 'No existe')
+      
+      if (!session) { 
+        console.log('❌ No hay sesión, redirigiendo a login')
+        router.push('/login')
+        return 
+      }
 
-      const { data: profile } = await supabase
+      console.log('👤 User ID:', session.user.id)
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('*, congresses(name)')
+        .select('*')
         .eq('id', session.user.id)
         .single()
 
-      if (!profile || profile.role !== 'stand') { router.push('/login'); return }
+      console.log('📋 Profile:', profile)
+      console.log('❌ Profile error:', profileError)
 
-      const { data: standData } = await supabase
+      if (!profile) {
+        console.log('❌ No se encontró el perfil')
+        router.push('/login')
+        return
+      }
+
+      console.log('🎭 Rol del perfil:', profile.role)
+
+      if (profile.role !== 'stand') { 
+        console.log('❌ Rol incorrecto, redirigiendo a login')
+        router.push('/login')
+        return 
+      }
+
+      console.log('🏪 Stand ID del perfil:', profile.stand_id)
+
+      const { data: standData, error: standError } = await supabase
         .from('stands')
         .select('*, congresses(name)')
         .eq('id', profile.stand_id)
         .single()
 
+      console.log('🏢 Stand data:', standData)
+      console.log('❌ Stand error:', standError)
+
       setStand(standData)
       setLoading(false)
+      
+      console.log('✅ Carga completada')
     }
     load()
   }, [])
@@ -40,75 +72,69 @@ export default function StandDashboardPage() {
     <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <div className="w-10 h-10 border-3 border-gray-200 border-t-indigo-600 rounded-full animate-spin"></div>
-        <p className="text-sm text-gray-500">Cargando...</p>
+        <p className="text-sm text-gray-500">Cargando dashboard...</p>
+      </div>
+    </div>
+  )
+
+  if (!stand) return (
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+      <div className="text-center">
+        <p className="text-red-600 font-semibold mb-2">No se encontró el stand</p>
+        <Link href="/login" className="text-indigo-600 text-sm">Volver al login</Link>
       </div>
     </div>
   )
 
   return (
     <div className="min-h-screen bg-[#FAFAFA]">
+      {/* Header */}
       <div className="bg-gradient-to-r from-[#987BA6] to-[#94BBE9]">
         <div className="px-6 py-6">
           <div className="flex items-center justify-between max-w-5xl mx-auto">
             <div>
-              <h1 className="text-xl font-bold text-white">{stand?.congresses?.name || 'Incentiva'}</h1>
+              <h1 className="text-xl font-bold text-white">
+                {stand?.congresses?.name || 'Incentiva'}
+              </h1>
               <p className="text-sm text-white/80 mt-0.5">{stand?.name ?? 'Mi stand'}</p>
             </div>
           </div>
         </div>
-        <div className="h-1 bg-cyan-400"></div>
+        <div className="h-1 bg-violet-400"></div>
       </div>
 
-      <div className="px-6 py-8 flex flex-col gap-3 max-w-5xl mx-auto">
+      {/* Contenido */}
+      <div className="px-6 py-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          <Link
+            href="/stand/mi-qr"
+            className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="text-4xl mb-3">📱</div>
+            <h3 className="font-bold text-gray-900 mb-1">Mi código QR</h3>
+            <p className="text-sm text-gray-500">Ver mi QR para capturar leads</p>
+          </Link>
 
-        <Link
-          href="/stand/mi-qr"
-          className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
-        >
-          <div className="w-10 h-10 rounded-lg bg-cyan-50 flex items-center justify-center">
-            <span className="text-2xl">📱</span>
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Mi QR</p>
-            <p className="text-sm text-gray-500 mt-0.5">Muéstralo para capturar leads</p>
-          </div>
-          <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
+          <Link
+            href="/stand/leads"
+            className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="text-4xl mb-3">👥</div>
+            <h3 className="font-bold text-gray-900 mb-1">Mis Leads</h3>
+            <p className="text-sm text-gray-500">Ver asistentes que me visitaron</p>
+          </Link>
 
-        <Link
-          href="/stand/noticias"
-          className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
-        >
-          <div className="w-10 h-10 rounded-lg bg-violet-50 flex items-center justify-center">
-            <span className="text-2xl">📢</span>
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Noticias</p>
-            <p className="text-sm text-gray-500 mt-0.5">Publica updates de tu stand</p>
-          </div>
-          <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
+          <Link
+            href="/stand/noticias"
+            className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
+          >
+            <div className="text-4xl mb-3">📰</div>
+            <h3 className="font-bold text-gray-900 mb-1">Noticias</h3>
+            <p className="text-sm text-gray-500">Publicar novedades del stand</p>
+          </Link>
 
-        <Link
-          href="/stand/leads"
-          className="group bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:border-gray-200 hover:shadow-md transition-all duration-200 flex items-center gap-4"
-        >
-          <div className="w-10 h-10 rounded-lg bg-amber-50 flex items-center justify-center">
-            <span className="text-2xl">👥</span>
-          </div>
-          <div className="flex-1">
-            <p className="font-semibold text-gray-900 group-hover:text-indigo-600 transition-colors">Leads</p>
-            <p className="text-sm text-gray-500 mt-0.5">Asistentes que escanearon tu QR</p>
-          </div>
-          <svg className="w-5 h-5 text-gray-300 group-hover:text-gray-900 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-        </Link>
-
+        </div>
       </div>
     </div>
   )
