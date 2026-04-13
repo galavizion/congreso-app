@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import * as XLSX from 'xlsx'
 
 type Room = {
   id: string
@@ -34,14 +33,14 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null)
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
-
+  
   // Room form
   const [showRoomForm, setShowRoomForm] = useState(false)
   const [roomName, setRoomName] = useState('')
   const [roomCapacity, setRoomCapacity] = useState('')
   const [roomLocation, setRoomLocation] = useState('')
   const [creatingRoom, setCreatingRoom] = useState(false)
-
+  
   // Event form
   const [showEventForm, setShowEventForm] = useState(false)
   const [eventTitle, setEventTitle] = useState('')
@@ -51,29 +50,24 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
   const [eventStartTime, setEventStartTime] = useState('')
   const [eventEndTime, setEventEndTime] = useState('')
   const [creatingEvent, setCreatingEvent] = useState(false)
-
+  
   // Edit room
   const [editingRoom, setEditingRoom] = useState<Room | null>(null)
   const [editRoomName, setEditRoomName] = useState('')
   const [editRoomCapacity, setEditRoomCapacity] = useState('')
   const [editRoomLocation, setEditRoomLocation] = useState('')
-
+  
   // Delete room
   const [deletingRoom, setDeletingRoom] = useState<Room | null>(null)
-
+  
   // Edit event
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
-
+  
   // Delete event
   const [deletingEvent, setDeletingEvent] = useState<Event | null>(null)
-
+  
   // Selected date filter
   const [selectedDate, setSelectedDate] = useState<string>('')
-
-  // Excel import
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [importing, setImporting] = useState(false)
-  const [importResult, setImportResult] = useState<{ ok: number; errors: string[] } | null>(null)
 
   useEffect(() => {
     loadRooms()
@@ -87,27 +81,29 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
 
   async function loadRooms() {
     setLoading(true)
-
+    
     const { data: roomsData } = await supabase
       .from('congress_rooms')
       .select('*')
       .eq('congress_id', congressId)
       .order('created_at', { ascending: true })
-
+    
     if (roomsData) {
+      // Contar eventos por sala
       const roomsWithCount = await Promise.all(
         roomsData.map(async (room) => {
           const { count } = await supabase
             .from('congress_events')
             .select('*', { count: 'exact', head: true })
             .eq('room_id', room.id)
-
+          
           return { ...room, eventCount: count || 0 }
         })
       )
+      
       setRooms(roomsWithCount)
     }
-
+    
     setLoading(false)
   }
 
@@ -118,7 +114,7 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
       .eq('room_id', roomId)
       .order('date', { ascending: true })
       .order('start_time', { ascending: true })
-
+    
     if (eventsData) setEvents(eventsData)
   }
 
@@ -176,7 +172,7 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
       setEventEndTime('')
       setShowEventForm(false)
       loadEvents(selectedRoom.id)
-      loadRooms()
+      loadRooms() // Actualizar contador
     } else {
       alert('Error: ' + error.message)
     }
@@ -271,7 +267,7 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
       setDeletingEvent(null)
       if (selectedRoom) {
         loadEvents(selectedRoom.id)
-        loadRooms()
+        loadRooms() // Actualizar contador
       }
     } else {
       alert('Error: ' + error.message)
@@ -289,151 +285,6 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
     setShowEventForm(true)
   }
 
-  // ─── Excel: descargar plantilla ───────────────────────────────────────────
-  function downloadTemplate() {
-    const ws = XLSX.utils.aoa_to_sheet([
-      ['titulo', 'descripcion', 'ponente', 'fecha', 'hora_inicio', 'hora_fin'],
-      ['Conferencia inaugural', 'Bienvenida al congreso', 'Dr. Juan Pérez', '2026-06-10', '09:00', '10:00'],
-      ['Mesa redonda', 'Discusión abierta', 'Varios', '2026-06-10', '10:30', '11:30'],
-    ])
-
-    // Ancho de columnas
-    ws['!cols'] = [
-      { wch: 30 }, { wch: 35 }, { wch: 25 },
-      { wch: 14 }, { wch: 13 }, { wch: 13 }
-    ]
-
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Eventos')
-    XLSX.writeFile(wb, 'plantilla_horarios.xlsx')
-  }
-
-  // ─── Excel: parsear hora ──────────────────────────────────────────────────
-  function parseTime(raw: unknown): string | null {
-    if (raw === null || raw === undefined || raw === '') return null
-
-    // Número decimal de Excel (fracción de día)
-    if (typeof raw === 'number') {
-      const totalMinutes = Math.round(raw * 24 * 60)
-      const h = Math.floor(totalMinutes / 60) % 24
-      const m = totalMinutes % 60
-      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
-    }
-
-    // String tipo "09:00" o "09:00:00"
-    if (typeof raw === 'string') {
-      const match = raw.trim().match(/^(\d{1,2}):(\d{2})/)
-      if (match) {
-        return `${String(parseInt(match[1])).padStart(2, '0')}:${match[2]}:00`
-      }
-    }
-
-    return null
-  }
-
-  // ─── Excel: parsear fecha ─────────────────────────────────────────────────
-  function parseDate(raw: unknown): string | null {
-    if (raw === null || raw === undefined || raw === '') return null
-
-    // Número serial de Excel
-    if (typeof raw === 'number') {
-      const date = XLSX.SSF.parse_date_code(raw)
-      if (date) {
-        return `${date.y}-${String(date.m).padStart(2, '0')}-${String(date.d).padStart(2, '0')}`
-      }
-    }
-
-    // String tipo "2026-06-10" o "10/06/2026"
-    if (typeof raw === 'string') {
-      const iso = raw.trim().match(/^(\d{4})-(\d{2})-(\d{2})/)
-      if (iso) return raw.trim().substring(0, 10)
-
-      const mxDate = raw.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/)
-      if (mxDate) {
-        return `${mxDate[3]}-${String(parseInt(mxDate[2])).padStart(2, '0')}-${String(parseInt(mxDate[1])).padStart(2, '0')}`
-      }
-    }
-
-    return null
-  }
-
-  // ─── Excel: importar archivo ──────────────────────────────────────────────
-  async function handleImportExcel(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file || !selectedRoom) return
-
-    setImporting(true)
-    setImportResult(null)
-
-    try {
-      const buffer = await file.arrayBuffer()
-      const wb = XLSX.read(buffer, { type: 'array', cellDates: false })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: '' })
-
-      const toInsert = []
-      const errors: string[] = []
-
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i]
-        const rowNum = i + 2 // +2 porque fila 1 es header
-
-        const title = String(row['titulo'] ?? '').trim()
-        const date = parseDate(row['fecha'])
-        const startTime = parseTime(row['hora_inicio'])
-        const endTime = parseTime(row['hora_fin'])
-
-        if (!title) {
-          errors.push(`Fila ${rowNum}: falta el título`)
-          continue
-        }
-        if (!date) {
-          errors.push(`Fila ${rowNum}: fecha inválida ("${row['fecha']}")`)
-          continue
-        }
-        if (!startTime) {
-          errors.push(`Fila ${rowNum}: hora_inicio inválida ("${row['hora_inicio']}")`)
-          continue
-        }
-        if (!endTime) {
-          errors.push(`Fila ${rowNum}: hora_fin inválida ("${row['hora_fin']}")`)
-          continue
-        }
-
-        toInsert.push({
-          congress_id: congressId,
-          room_id: selectedRoom.id,
-          title,
-          description: String(row['descripcion'] ?? '').trim() || null,
-          speaker: String(row['ponente'] ?? '').trim() || null,
-          date,
-          start_time: startTime,
-          end_time: endTime,
-        })
-      }
-
-      let inserted = 0
-      if (toInsert.length > 0) {
-        const { error } = await supabase.from('congress_events').insert(toInsert)
-        if (error) {
-          errors.push(`Error al guardar: ${error.message}`)
-        } else {
-          inserted = toInsert.length
-          loadEvents(selectedRoom.id)
-          loadRooms()
-        }
-      }
-
-      setImportResult({ ok: inserted, errors })
-    } catch (err) {
-      setImportResult({ ok: 0, errors: ['No se pudo leer el archivo. Verifica que sea un .xlsx válido.'] })
-    } finally {
-      setImporting(false)
-      // Limpiar input para permitir volver a subir el mismo archivo
-      if (fileInputRef.current) fileInputRef.current.value = ''
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -442,10 +293,10 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
     )
   }
 
-  // ─── Vista: sala seleccionada (eventos) ───────────────────────────────────
+  // Vista de sala seleccionada (eventos)
   if (selectedRoom) {
     const uniqueDates = [...new Set(events.map(e => e.date))].sort()
-    const filteredEvents = selectedDate
+    const filteredEvents = selectedDate 
       ? events.filter(e => e.date === selectedDate)
       : events
 
@@ -453,12 +304,14 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => setSelectedRoom(null)}
-            className="text-indigo-600 hover:text-indigo-700"
-          >
-            ← Volver
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedRoom(null)}
+              className="text-indigo-600 hover:text-indigo-700"
+            >
+              ← Volver
+            </button>
+          </div>
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
@@ -506,65 +359,14 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
           </div>
         )}
 
-        {/* Botones de acción (solo canEdit) */}
+        {/* Botón agregar evento */}
         {canEdit && !showEventForm && (
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowEventForm(true)}
-              className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 font-medium text-sm"
-            >
-              + Agregar Evento
-            </button>
-
-            {/* Importar Excel */}
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={importing}
-              className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 font-medium text-sm disabled:opacity-50"
-            >
-              {importing ? 'Importando...' : '📥 Importar Excel'}
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls"
-              onChange={handleImportExcel}
-              className="hidden"
-            />
-
-            {/* Descargar plantilla */}
-            <button
-              onClick={downloadTemplate}
-              className="px-4 py-3 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 text-sm font-medium"
-              title="Descargar plantilla Excel"
-            >
-              📄
-            </button>
-          </div>
-        )}
-
-        {/* Resultado de importación */}
-        {importResult && (
-          <div className={`rounded-xl p-4 text-sm ${
-            importResult.errors.length === 0
-              ? 'bg-green-50 border border-green-200'
-              : 'bg-yellow-50 border border-yellow-200'
-          }`}>
-            {importResult.ok > 0 && (
-              <p className="text-green-700 font-medium mb-1">
-                ✅ {importResult.ok} evento{importResult.ok !== 1 ? 's' : ''} importado{importResult.ok !== 1 ? 's' : ''} correctamente
-              </p>
-            )}
-            {importResult.errors.map((err, i) => (
-              <p key={i} className="text-yellow-800">⚠️ {err}</p>
-            ))}
-            <button
-              onClick={() => setImportResult(null)}
-              className="mt-2 text-gray-500 text-xs underline"
-            >
-              Cerrar
-            </button>
-          </div>
+          <button
+            onClick={() => setShowEventForm(true)}
+            className="w-full bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 font-medium"
+          >
+            + Agregar Evento
+          </button>
         )}
 
         {/* Formulario crear/editar evento */}
@@ -575,7 +377,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
             </h3>
             <form onSubmit={editingEvent ? handleUpdateEvent : handleCreateEvent} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Título *</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Título *
+                </label>
                 <input
                   type="text"
                   value={eventTitle}
@@ -585,7 +389,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Descripción
+                </label>
                 <textarea
                   value={eventDescription}
                   onChange={(e) => setEventDescription(e.target.value)}
@@ -594,7 +400,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Ponente</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Ponente
+                </label>
                 <input
                   type="text"
                   value={eventSpeaker}
@@ -604,7 +412,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Fecha *</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Fecha *
+                </label>
                 <input
                   type="date"
                   value={eventDate}
@@ -615,7 +425,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Hora inicio *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Hora inicio *
+                  </label>
                   <input
                     type="time"
                     value={eventStartTime}
@@ -625,7 +437,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Hora fin *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Hora fin *
+                  </label>
                   <input
                     type="time"
                     value={eventEndTime}
@@ -669,12 +483,15 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
         {filteredEvents.length === 0 ? (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center">
             <div className="text-gray-400 text-base mb-1">Sin eventos</div>
-            <p className="text-gray-500 text-xs">Agrega el primer evento o importa un Excel</p>
+            <p className="text-gray-500 text-xs">Agrega el primer evento</p>
           </div>
         ) : (
           <div className="space-y-3">
             {filteredEvents.map((event) => (
-              <div key={event.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+              <div
+                key={event.id}
+                className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"
+              >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
@@ -751,9 +568,10 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
     )
   }
 
-  // ─── Vista principal (lista de salas) ─────────────────────────────────────
+  // Vista principal (lista de salas)
   return (
     <div className="space-y-4">
+      {/* Botón agregar sala */}
       {canEdit && !showRoomForm && (
         <button
           onClick={() => setShowRoomForm(true)}
@@ -763,12 +581,15 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
         </button>
       )}
 
+      {/* Formulario crear sala */}
       {showRoomForm && (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
           <h3 className="font-bold text-gray-900 mb-4 text-sm">Nueva Sala</h3>
           <form onSubmit={handleCreateRoom} className="space-y-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nombre *</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Nombre *
+              </label>
               <input
                 type="text"
                 value={roomName}
@@ -779,7 +600,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Capacidad</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Capacidad
+              </label>
               <input
                 type="number"
                 value={roomCapacity}
@@ -789,7 +612,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Ubicación</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Ubicación
+              </label>
               <input
                 type="text"
                 value={roomLocation}
@@ -819,6 +644,7 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
         </div>
       )}
 
+      {/* Lista de salas */}
       {rooms.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-8 text-center">
           <div className="text-4xl mb-3">🏛️</div>
@@ -828,7 +654,10 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
       ) : (
         <div className="space-y-3">
           {rooms.map((room) => (
-            <div key={room.id} className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+            <div
+              key={room.id}
+              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4"
+            >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
                   <h3 className="font-medium text-gray-900">{room.name}</h3>
@@ -878,7 +707,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
               <h3 className="text-lg font-bold text-gray-900 mb-4">Editar Sala</h3>
               <form onSubmit={handleUpdateRoom} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre *
+                  </label>
                   <input
                     type="text"
                     value={editRoomName}
@@ -888,7 +719,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Capacidad</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Capacidad
+                  </label>
                   <input
                     type="number"
                     value={editRoomCapacity}
@@ -897,7 +730,9 @@ export default function ScheduleManager({ congressId, canEdit = false }: Schedul
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Ubicación</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ubicación
+                  </label>
                   <input
                     type="text"
                     value={editRoomLocation}
